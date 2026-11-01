@@ -1254,6 +1254,7 @@ def pons_feed(query, search_term=""):
         "rows": rows,
         "total": len(candidates),
         "has_more": offset + len(rows) < len(candidates),
+        "counts": {column: len(candidates)},
         "head": head,
         "window_start": start,
         "scan_truncated": scan_truncated,
