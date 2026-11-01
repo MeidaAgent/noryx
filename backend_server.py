@@ -29,6 +29,9 @@ WEB_ROOT = ROOT / "sentro_clone"
 # Vercel instances have an ephemeral filesystem. The local SQLite file is
 # retained for development, while serverless invocations use /tmp.
 DATABASE = Path(os.getenv("NORYX_DATABASE", "/tmp/noryx.sqlite3" if os.getenv("VERCEL") else str(ROOT / "noryx.sqlite3")))
+
+def db_connect():
+    return sqlite3.connect(DATABASE)
 RPC_URLS = tuple(
     url
     for url in (
@@ -947,6 +950,51 @@ def pons_token_metrics(address, sync_fallback=False):
 def pons_token_holders(address, creator=None):
     _, holders_resp = pons_token_holders_and_metrics(address, creator=creator, sync_fallback=True)
     return holders_resp
+
+
+
+def pons_token_traders(address):
+    """Top wallets for a token by buy/sell volume from the local index."""
+    address = address.lower()
+    db = db_connect()
+    try:
+        # Sum buys/sells per actor
+        rows = db.execute(
+            """
+            SELECT
+                actor,
+                SUM(CASE WHEN side='buy'  THEN CAST(quote_raw AS REAL)/1e18 ELSE 0 END) AS bought_eth,
+                SUM(CASE WHEN side='sell' THEN CAST(quote_raw AS REAL)/1e18 ELSE 0 END) AS sold_eth,
+                COUNT(*) AS trades,
+                SUM(CASE WHEN side='buy'  THEN 1 ELSE 0 END) AS buys,
+                SUM(CASE WHEN side='sell' THEN 1 ELSE 0 END) AS sells
+            FROM pons_market_trades
+            WHERE token=? AND actor IS NOT NULL AND actor != ''
+            GROUP BY actor
+            ORDER BY bought_eth DESC
+            LIMIT 50
+            """,
+            (address,),
+        ).fetchall()
+    finally:
+        db.close()
+
+    traders = []
+    for rank, row in enumerate(rows, start=1):
+        actor, bought_eth, sold_eth, trades, buys, sells = row
+        pnl_eth = sold_eth - bought_eth
+        traders.append({
+            "address": actor,
+            "rank": rank,
+            "bought_eth": round(float(bought_eth), 6),
+            "sold_eth": round(float(sold_eth), 6),
+            "pnl_eth": round(float(pnl_eth), 6),
+            "trades": trades,
+            "buys": buys,
+            "sells": sells,
+        })
+    partial = len(traders) == 0
+    return {"traders": traders, "count": len(traders), "partial": partial, "source": "pons_index"}
 
 
 def pons_trend_token_info(address):
@@ -3665,83 +3713,105 @@ class NoryxHandler(BaseHTTPRequestHandler):
             return
 
     def stream_token(self, address):
-        try:
-            initial = feed_token(address)
-            if initial is None:
-                self.send_json(404, {"error": "not_a_pons_token", "address": address})
-                return
-            record = pons_factory_record(address)
-            if record is None:
-                self.send_json(404, {"error": "not_a_pons_token", "address": address})
-                return
-            cursor = int(rpc_call("eth_blockNumber", []), 16)
-            recent, _, _ = pons_token_trade_history(
-                address,
-                record,
-                cursor,
-                max(0, cursor - 5000),
-                cursor,
-            )
-            initial["trades"] = sorted(
-                recent,
-                key=lambda trade: (trade["ts"], trade["block"], trade["idx"]),
-                reverse=True,
-            )[:100]
-        except (RuntimeError, ValueError, TypeError, PonsQuoteError) as exc:
-            self.send_json(503, {"error": "pons_rpc_unavailable", "detail": str(exc)})
+        address = address.lower()
+        if not re.fullmatch(r"0x[0-9a-fA-F]{40}", address):
+            self.send_json(400, {"error": "invalid_address", "address": address})
             return
-        if initial is None:
-            self.send_json(404, {"error": "not_a_pons_token", "address": address})
-            return
+
         self.send_response(200)
         self.send_header("content-type", "text/event-stream; charset=utf-8")
         self.send_header("cache-control", "no-cache, no-store")
         self.send_header("connection", "keep-alive")
         self.send_header("access-control-allow-origin", "*")
+        self.send_header("x-accel-buffering", "no")
         self.end_headers()
-        previous_trades = {
-            f"{trade['tx']}:{trade['idx']}" for trade in initial.get("trades", [])
-        }
+
         try:
+            self.wfile.write(b": connected\n\n")
+            self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            return
+
+        try:
+            initial = feed_token(address)
+            if initial is None:
+                self.wfile.write(b"event: error\ndata: {\"error\": \"not_a_pons_token\"}\n\n")
+                self.wfile.flush()
+                return
+
+            db = db_connect()
+            try:
+                trade_rows = db.execute(
+                    """SELECT tx_hash, log_index, side, quote_raw, token_raw, actor, block_number, timestamp
+                       FROM pons_market_trades
+                       WHERE token=?
+                       ORDER BY block_number DESC, log_index DESC
+                       LIMIT 50""",
+                    (address,)
+                ).fetchall()
+            finally:
+                db.close()
+            recent = []
+            for r in trade_rows:
+                tx_h, l_idx, side, q_raw, tok_raw, actor, blk, ts = r
+                recent.append({
+                    "tx": tx_h,
+                    "idx": l_idx,
+                    "side": side,
+                    "eth": float(q_raw) / 1e18 if q_raw else 0.0,
+                    "actor": actor,
+                    "block": blk,
+                    "ts": ts,
+                })
+            initial["trades"] = recent
+
+            previous_trades = {
+                f"{trade['tx']}:{trade['idx']}" for trade in initial.get("trades", [])
+            }
             self.wfile.write(
                 f"event: tok_hello\ndata: {json.dumps(initial, ensure_ascii=False)}\n\n".encode()
             )
             self.wfile.flush()
-            for _attempt in range(20):
+
+            last_block = max([t["block"] for t in initial["trades"]] + [0])
+            for _attempt in range(60):
                 time.sleep(3)
-                head = int(rpc_call("eth_blockNumber", []), 16)
-                new_trades = []
-                if head > cursor:
-                    new_trades, _, _ = pons_token_trade_history(
-                        address,
-                        record,
-                        head,
-                        cursor + 1,
-                        head,
-                    )
-                    cursor = head
-                snapshot = token_snapshot(address)
-                if snapshot:
-                    event = "tok_stats"
+                db = db_connect()
+                try:
+                    new_rows = db.execute(
+                        """SELECT tx_hash, log_index, side, quote_raw, token_raw, actor, block_number, timestamp
+                           FROM pons_market_trades
+                           WHERE token=? AND block_number >= ?
+                           ORDER BY block_number ASC, log_index ASC""",
+                        (address, last_block)
+                    ).fetchall()
+                finally:
+                    db.close()
+                for r in new_rows:
+                    tx_h, l_idx, side, q_raw, tok_raw, actor, blk, ts = r
+                    key = f"{tx_h}:{l_idx}"
+                    if key in previous_trades:
+                        continue
+                    previous_trades.add(key)
+                    last_block = max(last_block, blk)
+                    trade_obj = {
+                        "tx": tx_h,
+                        "idx": l_idx,
+                        "side": side,
+                        "eth": float(q_raw) / 1e18 if q_raw else 0.0,
+                        "actor": actor,
+                        "block": blk,
+                        "ts": ts,
+                    }
                     self.wfile.write(
-                        f"event: {event}\ndata: {json.dumps(snapshot, ensure_ascii=False)}\n\n".encode()
+                        f"event: tok_trade\ndata: {json.dumps(trade_obj, ensure_ascii=False)}\n\n".encode()
                     )
-                    for trade in new_trades:
-                        key = f"{trade['tx']}:{trade['idx']}"
-                        if key in previous_trades:
-                            continue
-                        previous_trades.add(key)
-                        self.wfile.write(
-                            f"event: tok_trade\ndata: {json.dumps(trade, ensure_ascii=False)}\n\n".encode()
-                        )
-                    self.wfile.flush()
+                self.wfile.write(b": heartbeat\n\n")
+                self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             return
-        except (RuntimeError, ValueError, TypeError, PonsQuoteError) as exc:
-            self.wfile.write(
-                f"event: error\ndata: {json.dumps({'source': 'pons_chain_rpc', 'detail': str(exc)})}\n\n".encode()
-            )
-            self.wfile.flush()
+        except Exception:
+            return
 
     def do_OPTIONS(self):
         self.send_response(204)
@@ -3891,15 +3961,31 @@ class NoryxHandler(BaseHTTPRequestHandler):
                 },
             )
             return
+        if path == "/api/feed/lists":
+            db = db_connect()
+            try:
+                rows = db.execute(
+                    "SELECT token FROM pons_launches ORDER BY launch_block DESC LIMIT 200"
+                ).fetchall()
+            finally:
+                db.close()
+            items = []
+            for (t_addr,) in rows:
+                meta = PONS_METADATA_CACHE.get(t_addr) or {}
+                items.append({
+                    "token": t_addr,
+                    "name": meta.get("name") or t_addr[:8],
+                    "symbol": meta.get("symbol") or "TKN",
+                })
+            self.send_json(200, {"items": items, "rows": items, "total": len(items), "source": "pons_index"})
+            return
         if path in {
             "/api/feed",
-            "/api/feed/lists",
             "/api/tops",
             "/api/trending",
             "/api/migrations",
             "/api/pairs",
             "/api/stocks",
-            "/api/search",
         }:
             try:
                 payload = indexer_json(path, query)
@@ -3965,10 +4051,20 @@ class NoryxHandler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json(503, {"error": "holders_unavailable", "detail": str(exc), "holders": [], "count": 0})
             return
+        if path.startswith("/api/token/") and path.endswith("/traders"):
+            address = path.split("/")[3]
+            if not re.fullmatch(r"0x[0-9a-fA-F]{40}", address):
+                self.send_json(400, {"error": "invalid_address", "address": address})
+                return
+            try:
+                self.send_json(200, pons_token_traders(address.lower()))
+            except Exception as exc:
+                self.send_json(503, {"error": "traders_unavailable", "detail": str(exc), "traders": []})
+            return
         if path.startswith("/api/token/") or path.startswith("/api/check/"):
             parts = path.split("/")
             address = parts[3] if len(parts) > 3 else ""
-            if path.startswith("/api/token/") and len(parts) > 4 and parts[4] not in {"market", "preview", "boot", "holders"}:
+            if path.startswith("/api/token/") and len(parts) > 4 and parts[4] not in {"market", "preview", "boot", "holders", "traders", "check", "candles", "trades", "flow", "stream"}:
                 self.send_json(
                     501,
                     {

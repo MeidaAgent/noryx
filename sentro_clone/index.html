@@ -473,37 +473,53 @@
     const boot = document.getElementById("boot");
     const retry = document.getElementById("bootR");
     const line = document.getElementById("bootL");
-    const maxWait = 60 * 1000;
+    const maxWait = 30 * 1000;
     let closed = false;
 
-    if (!boot || !retry || !line) return;
+    if (!boot) return;
 
     const closeBoot = () => {
       if (closed) return;
       closed = true;
       boot.setAttribute("aria-busy", "false");
-      boot.style.transition = "opacity .35s ease";
-      boot.style.opacity = "0";
-      window.setTimeout(() => boot.remove(), 400);
+      boot.classList.add("is-out");
+      window.setTimeout(() => {
+        try { boot.remove(); } catch (e) {}
+      }, 500);
     };
+
+    window.closeBoot = closeBoot;
+
+    window.addEventListener("message", (e) => {
+      if (e && e.data && (e.data.type === "noryx_loader_done" || e.data.type === "noryx_loader_full")) {
+        // Bar reached 100% full, close loading screen
+        window.setTimeout(closeBoot, 250);
+      }
+    });
+
+    // Safety fallback: if no event arrives within 6.0s, close boot anyway
+    window.setTimeout(closeBoot, 6000);
 
     const showRetry = () => {
       if (closed) return;
-      line.hidden = false;
-      line.textContent = "Noryx belum bisa masuk. Coba lagi?";
-      retry.hidden = false;
-      retry.focus({ preventScroll: true });
+      if (line) {
+        line.hidden = false;
+        line.textContent = "Noryx belum bisa masuk. Coba lagi?";
+      }
+      if (retry) {
+        retry.hidden = false;
+        retry.focus({ preventScroll: true });
+      }
     };
 
-    retry.addEventListener("click", () => {
-      retry.disabled = true;
-      retry.textContent = "Memuat ulang…";
-      window.location.reload();
-    });
+    if (retry) {
+      retry.addEventListener("click", () => {
+        retry.disabled = true;
+        retry.textContent = "Memuat ulang…";
+        window.location.reload();
+      });
+    }
 
-    window.addEventListener("load", () => {
-      window.setTimeout(closeBoot, 250);
-    }, { once: true });
     window.setTimeout(showRetry, maxWait);
   })();
 </script>
