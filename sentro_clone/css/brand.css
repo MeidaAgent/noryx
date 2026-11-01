@@ -1,0 +1,49 @@
+:root {
+  color-scheme: dark;
+  --n-hdr: #08090b;
+  --n-0: #090a0d;
+  --n-1: #0c0e12;
+  --n-2: #13161b;
+  --n-3: #191c22;
+  --n-4: #20242b;
+  --line: #252a32;
+  --line-strong: #373d47;
+  --line-ctl: #5b626e;
+  --grid: #22262d;
+  --scrim: rgba(5, 6, 8, .84);
+  --t-body: #c1c5ce;
+  --t-2: #969ca7;
+  --t-3: #858b96;
+  --a: #b8df15;
+  --a-hover: #c7f12a;
+  --a-press: #98bf0c;
+  --on-a: #101306;
+  --a-tint: rgba(184, 223, 21, .14);
+  --nav-on: rgba(184, 223, 21, .12);
+  --n-raise: #14171c;
+  --shadow-raise: 0 0 0 1px var(--a), var(--shadow-drop);
+  --focus: 0 0 0 2px var(--n-1), 0 0 0 3px var(--a);
+  --f: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-head: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.prose a.as-tk {
+  border-bottom-color: rgba(184, 223, 21, .35);
+}
+
+.tokchip {
+  border-color: rgba(184, 223, 21, .45);
+}
+
+.doc__ca {
+  border-color: rgba(184, 223, 21, .45);
+}
+
+.boot {
+  background: #08090b;
+}
+
+.boot__logo {
+  filter: drop-shadow(0 0 7px rgba(184, 223, 21, .34));
+}

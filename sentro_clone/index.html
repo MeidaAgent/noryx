@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script type="importmap">{"imports":{"react":"https://esm.sh/react@18.3.1","react/jsx-runtime":"https://esm.sh/react@18.3.1/jsx-runtime","react-dom":"https://esm.sh/react-dom@18.3.1?external=react","react-dom/client":"https://esm.sh/react-dom@18.3.1/client?external=react"}}</script><script>window.ASSET_V={"/js/api.js":"64d04c86e4","/js/app.js":"49e9092d1a","/js/bridge.js":"026fd2294a","/js/chartev.js":"6518094a71","/js/format.js":"7b39fc90e0","/js/guard.js":"0a3f11ecc6","/js/icons.js":"ee131ad5c2","/js/lighter.js":"f803aeecbc","/js/pages.js":"a3be0739c8","/js/perpmath.js":"89f6d30143","/js/perps.js":"efebec5603","/js/roadmap.js":"122e156b6e","/js/tokenca.js":"7a5da63f4b","/js/trust.js":"0be3fbdbc7","/js/wallet.js":"noryx-privy-email-only-1","/js/privy.js":"noryx-privy-email-otp-1","/css/perps-trade.css":"0e985214d4","/css/roadmap.css":"6fca2df80f","/css/sentro.css":"7ae317e5de","/css/tokens.css":"cd50dd1a2c","/vendor/lightweight-charts.standalone.production.js":"c7dda807d6","/vendor/qrcode.js":"4b6edd5275","/vendor/lighter/wasm_exec.js":"45ce9dfe72","/pages/guide.md":"3283d3b5ad","/pages/privacy.md":"d9d9182404","/pages/security.md":"cad3c4353f","/pages/support.md":"5b4905da07","/pages/terms.md":"479beb53d4"}</script>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
+<title data-slot="title-board">Noryx · AI terminal for Robinhood Chain</title>
+<meta content="Live board of every new launch, one click buys and sells, Ask AI about any token or wallet. 0% platform fee." data-slot="meta-desc" name="description"/>
+<meta content="Noryx" property="og:site_name"/>
+<meta content="website" property="og:type"/>
+<meta content="Noryx · AI terminal for Robinhood Chain" data-slot="og-title" property="og:title"/>
+<meta content="Live board of every new launch, one click buys and sells, Ask AI about any token or wallet. 0% platform fee." data-slot="og-desc" property="og:description"/>
+<meta content="/" property="og:url"/>
+<meta content="images/og-card.jpg" property="og:image"/>
+<meta content="1200" property="og:image:width"/><meta content="630" property="og:image:height"/>
+<meta content="summary_large_image" name="twitter:card"/>
+<meta content="Noryx · AI terminal for Robinhood Chain" data-slot="og-title" name="twitter:title"/>
+<meta content="Live board of every new launch, one click buys and sells, Ask AI about any token or wallet. 0% platform fee." data-slot="twitter-desc" name="twitter:description"/>
+<meta content="images/og-card.jpg" name="twitter:image"/>
+<link href="/" rel="canonical"/>
+<meta content="#060708" name="theme-color"/>
+<link href="/images/noryx-favicon.png?v=noryx-supplied-1" rel="icon" type="image/png"/>
+<link href="/images/noryx-favicon.png?v=noryx-supplied-1" rel="apple-touch-icon"/>
+<link href="/assets/site.webmanifest?v=noryx-supplied-1" rel="manifest"/>
+<link href="/css/tokens.css?v=noryx-system-fonts-1" rel="stylesheet"/>
+<link href="/css/sentro.css" rel="stylesheet"/>
+<link href="/css/perps-trade.css" rel="stylesheet"/>
+<link href="/css/roadmap.css" rel="stylesheet"/>
+<link href="/css/brand.css?v=noryx-realtime-brand-2" rel="stylesheet"/>
+<link href="/css/api-live.css?v=noryx-live-api-1" rel="stylesheet"/>
+<style>
+  .boot {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 14px;
+    background: #050505;
+    color: #b6b6b6;
+    font-family: var(--f-mono, monospace);
+    text-align: center;
+  }
+  .boot__brand {
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+  }
+  .boot__logo {
+    width: 52px;
+    height: 52px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 5px rgba(190, 255, 0, .3));
+    animation: boot-logo 1.8s ease-in-out infinite;
+  }
+  .boot__message {
+    min-height: 18px;
+    color: #a7a7a7;
+    font-size: 12px;
+    letter-spacing: .04em;
+  }
+  .boot__message::after {
+    content: "";
+    display: inline-block;
+    width: 18px;
+    text-align: left;
+    animation: boot-dots 1.2s steps(4, end) infinite;
+  }
+  .boot__l,
+  .boot button {
+    position: relative;
+    z-index: 1;
+  }
+  .boot__l {
+    display: block;
+    margin-top: min(58vh, 390px);
+    color: #a7a7a7;
+    font-size: 12px;
+    letter-spacing: .04em;
+  }
+  .boot__l[hidden],
+  .boot button[hidden] {
+    display: none;
+  }
+  .boot__retry {
+    border: 1px solid rgba(200, 241, 16, .7);
+    border-radius: 999px;
+    padding: 8px 18px;
+    background: rgba(3, 3, 0, .85);
+    color: #d7f56c;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    letter-spacing: .04em;
+  }
+  .boot__retry:hover,
+  .boot__retry:focus-visible {
+    background: rgba(184, 223, 21, .16);
+    outline: 2px solid rgba(200, 241, 16, .55);
+    outline-offset: 2px;
+  }
+  .boot__bar {
+    display: none;
+  }
+  @keyframes boot-logo {
+    0%, 100% { transform: scale(.96); opacity: .82; }
+    50% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes boot-dots {
+    0% { content: ""; }
+    25% { content: "."; }
+    50% { content: ".."; }
+    75%, 100% { content: "..."; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .boot__logo, .boot__message::after { animation: none; }
+    .boot__message::after { content: "..."; }
+  }
+  .boot__frame {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100vw !important;
+    height: 100vh !important;
+    border: 0;
+    background: #030300;
+  }
+</style>
+</head>
+<body data-col="new" data-page="board">
+<a class="skip" href="#main">Skip to content</a>
+<div aria-live="polite" class="boot" id="boot" role="status">
+  <iframe class="boot__frame" src="/loading-screen.html?v=noryx-supplied-1" title="Noryx loading screen"></iframe>
+  <span class="boot__l" data-slot="boot-line" hidden="" id="bootL">Still loading Noryx…</span>
+  <button class="boot__retry" data-slot="retry" hidden="" id="bootR" type="button">Retry</button>
+</div>
+<script>(function(){var p=location.pathname,b=document.body;b.dataset.page=/^\/token\//.test(p)?"token":/^\/(board)?\/?$/.test(p)?"board":"page";var m=p.match(/^\/token\/(0x[0-9a-fA-F]{40})/);if(m&&window.fetch){window.__bootCa=m[1].toLowerCase();window.__boot=fetch("/api/token/"+window.__bootCa+"/boot?wait_ms=800&noryx="+Date.now(),{cache:"no-store",headers:{accept:"application/json"}}).then(function(r){return r.ok?r.json():null}).catch(function(){return null})}})();</script>
+<svg aria-hidden="true" style="display:none" xmlns="http://www.w3.org/2000/svg">
+<symbol id="i-board" viewbox="0 0 24 24"><rect height="7" rx="1" width="7" x="3" y="3"></rect><rect height="7" rx="1" width="7" x="14" y="3"></rect><rect height="7" rx="1" width="7" x="14" y="14"></rect><rect height="7" rx="1" width="7" x="3" y="14"></rect></symbol>
+<symbol id="i-token" viewbox="0 0 24 24"><path d="M9 5v4"></path><rect height="6" rx="1" width="4" x="7" y="9"></rect><path d="M9 15v2"></path><path d="M17 3v2"></path><rect height="8" rx="1" width="4" x="15" y="5"></rect><path d="M17 13v3"></path><path d="M3 3v16a2 2 0 0 0 2 2h16"></path></symbol>
+<symbol id="i-portfolio" viewbox="0 0 24 24"><path d="M12 12h.01"></path><path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"></path><path d="M22 13a18.15 18.15 0 0 1-20 0"></path><rect height="14" rx="2" width="20" x="2" y="6"></rect></symbol>
+<symbol id="i-stocks" viewbox="0 0 24 24"><path d="M10 18v-7"></path><path d="M11.12 2.198a2 2 0 0 1 1.76.006l7.866 3.847c.476.233.31.949-.22.949H3.474c-.53 0-.695-.716-.22-.949z"></path><path d="M14 18v-7"></path><path d="M18 18v-7"></path><path d="M3 22h18"></path><path d="M6 18v-7"></path></symbol>
+<symbol id="i-search" viewbox="0 0 24 24"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></symbol>
+<symbol id="i-filter" viewbox="0 0 24 24"><path d="M10 5H3"></path><path d="M12 19H3"></path><path d="M14 3v4"></path><path d="M16 17v4"></path><path d="M21 12h-9"></path><path d="M21 19h-5"></path><path d="M21 5h-7"></path><path d="M8 10v4"></path><path d="M8 12H3"></path></symbol>
+<symbol id="i-close" viewbox="0 0 24 24"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></symbol>
+<symbol id="i-clear" viewbox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="m15 9-6 6"></path><path d="m9 9 6 6"></path></symbol>
+<symbol id="i-sort" viewbox="0 0 24 24"><path d="m7 15 5 5 5-5"></path><path d="m7 9 5-5 5 5"></path></symbol>
+<symbol id="i-sort-up" viewbox="0 0 24 24"><path d="m5 12 7-7 7 7"></path><path d="M12 19V5"></path></symbol>
+<symbol id="i-sort-down" viewbox="0 0 24 24"><path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path></symbol>
+<symbol id="i-chev-down" viewbox="0 0 24 24"><path d="m6 9 6 6 6-6"></path></symbol>
+<symbol id="i-chev-right" viewbox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></symbol>
+<symbol id="i-chev-left" viewbox="0 0 24 24"><path d="m15 18-6-6 6-6"></path></symbol>
+<symbol id="i-back" viewbox="0 0 24 24"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></symbol>
+<symbol id="i-menu" viewbox="0 0 24 24"><path d="M4 5h16"></path><path d="M4 12h16"></path><path d="M4 19h16"></path></symbol>
+<symbol id="i-buy" viewbox="0 0 24 24"><path d="M12 17V3"></path><path d="m6 11 6 6 6-6"></path><path d="M19 21H5"></path></symbol>
+<symbol id="i-sell" viewbox="0 0 24 24"><path d="m18 9-6-6-6 6"></path><path d="M12 3v14"></path><path d="M5 21h14"></path></symbol>
+<symbol id="i-quick" viewbox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path></symbol>
+<symbol id="i-copy" viewbox="0 0 24 24"><rect height="14" rx="2" ry="2" width="14" x="8" y="8"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></symbol>
+<symbol id="i-copied" viewbox="0 0 24 24"><path d="M20 6 9 17l-5-5"></path></symbol>
+<symbol id="i-share" viewbox="0 0 24 24"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"></line><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"></line></symbol>
+<symbol id="i-external" viewbox="0 0 24 24"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></symbol>
+<symbol id="i-globe" viewbox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path><path d="M2 12h20"></path></symbol>
+<symbol id="i-deposit" viewbox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></symbol>
+<symbol id="i-export-key" viewbox="0 0 24 24"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"></path><circle cx="16.5" cy="7.5" fill="currentColor" r=".5"></circle></symbol>
+<symbol id="i-download" viewbox="0 0 24 24"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></symbol>
+<symbol id="i-qr" viewbox="0 0 24 24"><rect height="5" rx="1" width="5" x="3" y="3"></rect><rect height="5" rx="1" width="5" x="16" y="3"></rect><rect height="5" rx="1" width="5" x="3" y="16"></rect><path d="M21 16h-3a2 2 0 0 0-2 2v3"></path><path d="M21 21v.01"></path><path d="M12 7v3a2 2 0 0 1-2 2H7"></path><path d="M3 12h.01"></path><path d="M12 3h.01"></path><path d="M12 16v.01"></path><path d="M16 12h1"></path><path d="M21 12v.01"></path><path d="M12 21v-1"></path></symbol>
+<symbol id="i-swap" viewbox="0 0 24 24"><path d="M8 3 4 7l4 4"></path><path d="M4 7h16"></path><path d="m16 21 4-4-4-4"></path><path d="M20 17H4"></path></symbol>
+<symbol id="i-roadmap" viewbox="0 0 24 24"><path d="M5 19V5l14 14V5"></path><circle cx="5" cy="5" r="2.5"></circle><circle cx="19" cy="19" r="2.5"></circle></symbol>
+<symbol id="i-slippage" viewbox="0 0 24 24"><line x1="19" x2="5" y1="5" y2="19"></line><circle cx="6.5" cy="6.5" r="2.5"></circle><circle cx="17.5" cy="17.5" r="2.5"></circle></symbol>
+<symbol id="i-stale" viewbox="0 0 24 24"><path d="M12 6v6l4 2"></path><path d="M20 12v5"></path><path d="M20 21h.01"></path><path d="M21.25 8.2A10 10 0 1 0 16 21.16"></path></symbol>
+<symbol id="i-warn" viewbox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></symbol>
+<symbol id="i-lock" viewbox="0 0 24 24"><rect height="11" rx="2" ry="2" width="18" x="3" y="11"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></symbol>
+<symbol id="i-ok" viewbox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></symbol>
+<symbol id="i-error" viewbox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="m15 9-6 6"></path><path d="m9 9 6 6"></path></symbol>
+<symbol id="i-info" viewbox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></symbol>
+<symbol id="i-offline" viewbox="0 0 24 24"><path d="M12 20h.01"></path><path d="M8.5 16.429a5 5 0 0 1 7 0"></path><path d="M5 12.859a10 10 0 0 1 5.17-2.69"></path><path d="M19 12.859a10 10 0 0 0-2.007-1.523"></path><path d="M2 8.82a15 15 0 0 1 4.177-2.643"></path><path d="M22 8.82a15 15 0 0 0-11.288-3.764"></path><path d="m2 2 20 20"></path></symbol>
+<symbol id="i-retry" viewbox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></symbol>
+<symbol id="i-loading" viewbox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></symbol>
+<symbol id="i-live" viewbox="0 0 24 24"><path d="M16.247 7.761a6 6 0 0 1 0 8.478"></path><path d="M19.075 4.933a10 10 0 0 1 0 14.134"></path><path d="M4.925 19.067a10 10 0 0 1 0-14.134"></path><path d="M7.753 16.239a6 6 0 0 1 0-8.478"></path><circle cx="12" cy="12" r="2"></circle></symbol>
+<symbol id="i-star" viewbox="0 0 24 24"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"></path></symbol>
+<symbol id="i-settings" viewbox="0 0 24 24"><path d="M14 17H5"></path><path d="M19 7h-9"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle></symbol>
+<symbol id="i-keyboard" viewbox="0 0 24 24"><path d="M10 8h.01"></path><path d="M12 12h.01"></path><path d="M14 8h.01"></path><path d="M16 12h.01"></path><path d="M18 8h.01"></path><path d="M6 8h.01"></path><path d="M7 16h10"></path><path d="M8 12h.01"></path><rect height="16" rx="2" width="20" x="2" y="4"></rect></symbol>
+<symbol id="i-ask" viewbox="0 0 24 24"><path d="m7 11 2-2-2-2"></path><path d="M11 13h4"></path><rect height="18" rx="2" ry="2" width="18" x="3" y="3"></rect></symbol>
+<symbol id="i-user" viewbox="0 0 24 24"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 0 0-16 0"></path></symbol>
+<symbol id="i-signout" viewbox="0 0 24 24"><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path></symbol>
+<symbol id="i-domain" viewbox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></symbol>
+<symbol id="i-holders" viewbox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></symbol>
+<symbol id="i-liquidity" viewbox="0 0 24 24"><path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"></path><path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"></path></symbol>
+<symbol id="i-snipers" viewbox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="22" x2="18" y1="12" y2="12"></line><line x1="6" x2="2" y1="12" y2="12"></line><line x1="12" x2="12" y1="6" y2="2"></line><line x1="12" x2="12" y1="22" y2="18"></line></symbol>
+<symbol id="i-bundles" viewbox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"></path><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"></path><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"></path></symbol>
+<symbol id="i-dev" viewbox="0 0 24 24"><path d="m16 11 2 2 4-4"></path><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></symbol>
+<symbol id="i-burn" viewbox="0 0 24 24"><path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4"></path></symbol>
+<symbol id="i-smart" viewbox="0 0 24 24"><path d="M12 18V5"></path><path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4"></path><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5"></path><path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"></path><path d="M18 18a4 4 0 0 0 2-7.464"></path><path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"></path><path d="M6 18a4 4 0 0 1-2-7.464"></path><path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"></path></symbol>
+<symbol id="i-clock" viewbox="0 0 24 24"><path d="M12 6v6l4 2"></path><circle cx="12" cy="12" r="10"></circle></symbol>
+<symbol id="i-chart" viewbox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="m19 9-5 5-4-4-3 3"></path></symbol>
+<symbol id="i-volume" viewbox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></symbol>
+<symbol id="i-eye" viewbox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path><circle cx="12" cy="12" r="3"></circle></symbol>
+<symbol id="i-eye-off" viewbox="0 0 24 24"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"></path><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"></path><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"></path><path d="m2 2 20 20"></path></symbol>
+<symbol id="i-bell" viewbox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></symbol>
+<symbol id="i-expand" viewbox="0 0 24 24"><path d="M15 3h6v6"></path><path d="m21 3-7 7"></path><path d="m3 21 7-7"></path><path d="M9 21H3v-6"></path></symbol>
+<symbol id="i-key" viewbox="0 0 24 24"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"></path><path d="m21 2-9.6 9.6"></path><circle cx="7.5" cy="15.5" r="5.5"></circle></symbol>
+<symbol id="i-code" viewbox="0 0 24 24"><path d="m16 18 6-6-6-6"></path><path d="m8 6-6 6 6 6"></path></symbol>
+<symbol id="i-arrow-down" viewbox="0 0 24 24"><path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path></symbol>
+<symbol id="i-target" viewbox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></symbol>
+<symbol id="i-sound" viewbox="0 0 24 24"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><path d="M16 9a5 5 0 0 1 0 6"></path><path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path></symbol>
+<symbol id="i-sound-off" viewbox="0 0 24 24"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><line x1="22" x2="16" y1="9" y2="15"></line><line x1="16" x2="22" y1="9" y2="15"></line></symbol>
+<symbol id="i-pencil" viewbox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></symbol>
+<symbol id="i-trending" viewbox="0 0 24 24"><path d="M16 7h6v6"></path><path d="m22 7-8.5 8.5-5-5L2 17"></path></symbol>
+<symbol id="i-book" viewbox="0 0 24 24"><path d="M12 7v14"></path><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"></path></symbol>
+<symbol id="i-puzzle" viewbox="0 0 24 24"><path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z"></path></symbol>
+<symbol id="i-plus" viewbox="0 0 24 24"><path d="M5 12h14"></path><path d="M12 5v14"></path></symbol>
+<symbol id="i-trash" viewbox="0 0 24 24"><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></symbol>
+<symbol id="i-sparkle" viewbox="0 0 24 24"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path></symbol>
+<symbol id="i-send" viewbox="0 0 24 24"><path d="M7 7h10v10"></path><path d="M7 17 17 7"></path></symbol>
+<symbol id="i-tracker" viewbox="0 0 24 24"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"></path><path d="M4 6h.01"></path><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"></path><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"></path><path d="M12 18h.01"></path><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"></path><circle cx="12" cy="12" r="2"></circle><path d="m13.41 10.59 5.66-5.66"></path></symbol>
+<symbol id="i-perps" viewbox="0 0 24 24"><path d="M9 5v4"></path><rect height="6" rx="1" width="4" x="7" y="9"></rect><path d="M9 15v2"></path><path d="M17 3v2"></path><rect height="8" rx="1" width="4" x="15" y="5"></rect><path d="M17 13v3"></path><path d="M3 3v16a2 2 0 0 0 2 2h16"></path></symbol>
+<symbol id="i-more" viewbox="0 0 24 24"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></symbol>
+<symbol id="i-signin" viewbox="0 0 24 24"><path d="m10 17 5-5-5-5"></path><path d="M15 12H3"></path><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path></symbol>
+<symbol id="i-shield" viewbox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></symbol>
+<symbol id="i-terms" viewbox="0 0 24 24"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path><path d="M7 21h10"></path><path d="M12 3v18"></path><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"></path></symbol>
+<symbol id="i-guide" viewbox="0 0 24 24"><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"></path><circle cx="12" cy="12" r="10"></circle></symbol>
+<symbol id="i-support" viewbox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="m4.93 4.93 4.24 4.24"></path><path d="m14.83 9.17 4.24-4.24"></path><path d="m14.83 14.83 4.24 4.24"></path><path d="m9.17 14.83-4.24 4.24"></path><circle cx="12" cy="12" r="4"></circle></symbol>
+<symbol id="i-custody" viewbox="0 0 24 24"><rect height="18" rx="2" width="18" x="3" y="3"></rect><circle cx="7.5" cy="7.5" fill="currentColor" r=".5"></circle><path d="m7.9 7.9 2.7 2.7"></path><circle cx="16.5" cy="7.5" fill="currentColor" r=".5"></circle><path d="m13.4 10.6 2.7-2.7"></path><circle cx="7.5" cy="16.5" fill="currentColor" r=".5"></circle><path d="m7.9 16.1 2.7-2.7"></path><circle cx="16.5" cy="16.5" fill="currentColor" r=".5"></circle><path d="m13.4 13.4 2.7 2.7"></path><circle cx="12" cy="12" r="2"></circle></symbol>
+<symbol id="i-checks" viewbox="0 0 24 24"><path d="M13 5h8"></path><path d="M13 12h8"></path><path d="M13 19h8"></path><path d="m3 17 2 2 4-4"></path><path d="m3 7 2 2 4-4"></path></symbol>
+<symbol id="i-release" viewbox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"></path><path d="M12 22V12"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><path d="m7.5 4.27 9 5.15"></path></symbol>
+<symbol id="i-coins" viewbox="0 0 24 24"><circle cx="8" cy="8" r="6"></circle><path d="M18.09 10.37A6 6 0 1 1 10.34 18"></path><path d="M7 6h1v4"></path><path d="m16.71 13.88.7.71-2.82 2.82"></path></symbol>
+<symbol id="i-recent" viewbox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l4 2"></path></symbol>
+<symbol id="i-search-x" viewbox="0 0 24 24"><path d="m13.5 8.5-5 5"></path><path d="m8.5 8.5 5 5"></path><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></symbol>
+<symbol id="i-display" viewbox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M7 16c.5-2 1.5-7 4-7 2 0 2 3 4 3 2.5 0 4.5-5 5-7"></path></symbol>
+<symbol id="i-flag" viewbox="0 0 24 24"><path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528"></path></symbol>
+<symbol id="i-activity" viewbox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"></path></symbol>
+<symbol id="i-score" viewbox="0 0 24 24"><path d="m12 14 4-4"></path><path d="M3.34 19a10 10 0 1 1 17.32 0"></path></symbol>
+<symbol id="i-trophy" viewbox="0 0 24 24"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"></path><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"></path><path d="M18 9h1.5a1 1 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"></path><path d="M6 9H4.5a1 1 0 0 1 0-5H6"></path></symbol>
+<symbol id="i-alert" viewbox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" x2="12" y1="8" y2="12"></line><line x1="12" x2="12.01" y1="16" y2="16"></line></symbol>
+<symbol id="i-api" viewbox="0 0 24 24"><path d="m18 16 4-4-4-4"></path><path d="m6 8-4 4 4 4"></path><path d="m14.5 4-5 16"></path></symbol>
+<symbol id="i-withdraw" viewbox="0 0 24 24"><path d="m18 9-6-6-6 6"></path><path d="M12 3v14"></path><path d="M5 21h14"></path></symbol>
+</svg>
+<div class="app">
+<header class="top">
+<div class="top__l"><a aria-label="Noryx" class="logo" data-link="" href="/board"><img alt="Noryx" class="logo__m" src="/images/noryx-favicon.png?v=noryx-supplied-1"/><span aria-hidden="true" class="logo__t">Noryx</span></a>
+<nav aria-label="Main" class="nav" id="nav">
+<a class="nav__a" data-link="" data-nav="board" href="/board"><svg aria-hidden="true" class="ico"><use href="#i-board"></use></svg><span data-slot="nav-board">Board</span></a>
+<a class="nav__a" data-link="" data-nav="trending" href="/trending"><svg aria-hidden="true" class="ico"><use href="#i-trending"></use></svg><span data-slot="nav-trending">Trending</span></a>
+<a class="nav__a" data-link="" data-nav="tracker" href="/tracker"><svg aria-hidden="true" class="ico"><use href="#i-tracker"></use></svg><span data-slot="nav-tracker">Tracker</span></a>
+<a class="nav__a" data-link="" data-nav="portfolio" href="/portfolio"><svg aria-hidden="true" class="ico"><use href="#i-portfolio"></use></svg><span data-slot="nav-portfolio">Portfolio</span></a>
+<a class="nav__a" data-link="" data-nav="ask" href="/ask"><svg aria-hidden="true" class="ico"><use href="#i-ask"></use></svg><span data-slot="nav-ask">Ask AI</span></a>
+<a class="nav__a" data-link="" data-nav="apikeys" href="/settings/api"><svg aria-hidden="true" class="ico"><use href="#i-api"></use></svg><span data-slot="nav-api">API</span></a>
+<a class="nav__a" data-link="" data-nav="docs" href="/docs"><svg aria-hidden="true" class="ico"><use href="#i-book"></use></svg><span data-slot="nav-docs">Docs</span></a>
+<a class="nav__a" data-link="" data-nav="roadmap" href="/roadmap"><svg aria-hidden="true" class="ico"><use href="#i-roadmap"></use></svg><span data-slot="rm-nav">Roadmap</span></a>
+<a class="nav__a" data-link="" data-nav="perps" href="/perps"><svg aria-hidden="true" class="ico"><use href="#i-perps"></use></svg><span data-slot="nav-perps">Perps</span><span class="nav__soon" data-slot="nav-beta">Beta</span></a>
+<div class="nav__more" hidden="" id="navMore"><button aria-expanded="false" aria-haspopup="menu" class="nav__a" id="navMoreB" type="button"><svg aria-hidden="true" class="ico"><use href="#i-more"></use></svg><span data-slot="nav-more">More</span><svg aria-hidden="true" class="ico ico--1"><use href="#i-chev-down"></use></svg></button>
+<div class="wm pop pop--l" hidden="" id="navMoreM" role="menu"></div></div>
+</nav></div>
+<div class="cmdw" id="cmdw">
+<label class="cmd"><svg aria-hidden="true" class="ico ico--3"><use href="#i-search"></use></svg><span aria-hidden="true" class="cmd__p">&gt;</span><input aria-autocomplete="list" aria-controls="drop" aria-expanded="false" aria-label="Search tokens, paste a CA or ask" autocomplete="off" data-slot="cmd-placeholder" id="cmd" placeholder="Search tokens, paste a CA or ask" role="combobox" spellcheck="false"/><kbd>⌘K</kbd></label>
+<div class="drop" hidden="" id="drop" role="listbox"></div>
+</div>
+<div class="top__r"><button aria-label="Search" class="ib top__search" data-slot-aria="key-search" id="topSearch" type="button"><svg aria-hidden="true" class="ico ico--3"><use href="#i-search"></use></svg></button><button class="btn btn--sec js-deposit" data-act="deposit" hidden="" id="topDep" type="button"><svg aria-hidden="true" class="ico"><use href="#i-deposit"></use></svg><span data-slot="acc-deposit">Deposit</span></button>
+<div class="acct" id="acct">
+<button aria-expanded="false" aria-haspopup="menu" class="btn btn--buy" disabled="" id="connect" type="button"><span data-slot="signin">Sign in</span></button>
+<div class="wm pop" hidden="" id="acmenu" role="menu">
+<div class="wm__dom"><svg aria-hidden="true" class="ico ico--1"><use href="#i-lock"></use></svg><span id="acDom"></span></div>
+<div class="wm__bal"><div class="lbl" data-slot="acc-wallet" id="acLabel">Trading wallet</div><div class="t-stat num" id="acBal">—</div><div class="dim" id="acAddr"></div></div>
+<a class="wm__it" data-act="nav" data-link="" href="/portfolio" role="menuitem"><svg aria-hidden="true" class="ico"><use href="#i-portfolio"></use></svg><span data-slot="nav-portfolio">Portfolio</span></a>
+<div class="wm__sep" role="separator"></div>
+<a class="wm__it" data-act="nav" data-link="" href="/settings/account" role="menuitem"><svg aria-hidden="true" class="ico"><use href="#i-user"></use></svg><span data-slot="set-account">Account</span></a>
+<a class="wm__it" data-act="nav" data-link="" href="/settings/notifications" role="menuitem"><svg aria-hidden="true" class="ico"><use href="#i-bell"></use></svg><span data-slot="set-notifications">Notifications</span></a>
+<a class="wm__it" data-act="nav" data-link="" href="/settings/trading" role="menuitem"><svg aria-hidden="true" class="ico"><use href="#i-slippage"></use></svg><span data-slot="set-trading">Trading</span></a>
+<a class="wm__it" data-act="nav" data-link="" href="/settings/api" role="menuitem"><svg aria-hidden="true" class="ico"><use href="#i-api"></use></svg><span data-slot="set-api">API</span></a>
+<a class="wm__it" data-act="nav" data-link="" href="/settings/security" role="menuitem"><svg aria-hidden="true" class="ico"><use href="#i-shield"></use></svg><span data-slot="set-security">Security</span></a>
+<div class="wm__sep" role="separator"></div>
+<button class="wm__it wm__it--danger" data-act="signout" role="menuitem" type="button"><svg aria-hidden="true" class="ico"><use href="#i-signout"></use></svg><span data-slot="acc-signout">Sign out</span></button>
+</div>
+</div></div>
+</header>
+<main class="main" id="main" tabindex="-1">
+<div class="scr l-board" id="scrBoard">
+<h1 class="sr" data-slot="nav-board">Board</h1>
+<div aria-label="Board columns" class="btabs js-coltabs" role="tablist">
+<button aria-selected="true" class="is-on" data-col="new" role="tab" type="button"><span data-slot="bc-new">New</span><span class="num" data-cnt="new"></span></button>
+<button aria-selected="false" data-col="bonding" role="tab" type="button"><span data-slot="bc-bonding">Almost bonded</span><span class="num" data-cnt="bonding"></span></button>
+<button aria-selected="false" data-col="migrated" role="tab" type="button"><span data-slot="bc-migrated">In pool</span><span class="num" data-cnt="migrated"></span></button>
+</div>
+<section aria-labelledby="colT-new" class="col col--new" data-col="new" id="col-new">
+<div class="col__h">
+<h2 class="col__t" id="colT-new"><span data-slot="bc-new">New</span><span class="col__n num" data-cnt="new"></span></h2>
+<button class="btn btn--sec btn--s newpill" hidden="" type="button"><svg aria-hidden="true" class="ico ico--1"><use href="#i-sort-up"></use></svg><span></span></button>
+<span class="col__x">
+<button aria-expanded="false" aria-haspopup="menu" aria-label="Quick buy amount" class="col__qb" data-h="qb" data-slot-aria="col-preset" type="button"></button>
+<button aria-label="Play a sound on new tokens in this column" aria-pressed="false" class="col__ib" data-h="al" data-slot-aria="col-alert" type="button"></button>
+<button aria-expanded="false" aria-haspopup="dialog" aria-label="Filters" class="col__ib" data-h="fl" data-slot-aria="col-filter" type="button"><svg aria-hidden="true" class="ico ico--1"><use href="#i-filter"></use></svg><span class="col__fn num" data-h="fn"></span></button>
+</span>
+</div>
+<div class="col__b"><div aria-label="New" class="col__list" role="list"></div><div class="col__empty empty" hidden=""></div><div class="col__more" hidden=""><svg aria-hidden="true" class="ico ico--1 ico--spin"><use href="#i-loading"></use></svg><span data-slot="more-rows">Loading more…</span></div></div>
+</section>
+<section aria-labelledby="colT-bonding" class="col col--bond" data-col="bonding" id="col-bonding">
+<div class="col__h">
+<h2 class="col__t" id="colT-bonding"><span data-slot="bc-bonding">Almost bonded</span><span class="col__n num" data-cnt="bonding"></span></h2>
+<button class="btn btn--sec btn--s newpill" hidden="" type="button"><svg aria-hidden="true" class="ico ico--1"><use href="#i-sort-up"></use></svg><span></span></button>
+<span class="col__x">
+<button aria-expanded="false" aria-haspopup="menu" aria-label="Quick buy amount" class="col__qb" data-h="qb" data-slot-aria="col-preset" type="button"></button>
+<button aria-label="Play a sound on new tokens in this column" aria-pressed="false" class="col__ib" data-h="al" data-slot-aria="col-alert" type="button"></button>
+<button aria-expanded="false" aria-haspopup="dialog" aria-label="Filters" class="col__ib" data-h="fl" data-slot-aria="col-filter" type="button"><svg aria-hidden="true" class="ico ico--1"><use href="#i-filter"></use></svg><span class="col__fn num" data-h="fn"></span></button>
+</span>
+</div>
+<div class="col__b"><div aria-label="Almost bonded" class="col__list" role="list"></div><div class="col__empty empty" hidden=""></div><div class="col__more" hidden=""><svg aria-hidden="true" class="ico ico--1 ico--spin"><use href="#i-loading"></use></svg><span data-slot="more-rows">Loading more…</span></div></div>
+</section>
+<section aria-labelledby="colT-migrated" class="col col--mig" data-col="migrated" id="col-migrated">
+<div class="col__h">
+<h2 class="col__t" id="colT-migrated"><span data-slot="bc-migrated">In pool</span><span class="col__n num" data-cnt="migrated"></span></h2>
+<button class="btn btn--sec btn--s newpill" hidden="" type="button"><svg aria-hidden="true" class="ico ico--1"><use href="#i-sort-up"></use></svg><span></span></button>
+<span class="col__x">
+<button aria-expanded="false" aria-haspopup="menu" aria-label="Quick buy amount" class="col__qb" data-h="qb" data-slot-aria="col-preset" type="button"></button>
+<button aria-label="Play a sound on new tokens in this column" aria-pressed="false" class="col__ib" data-h="al" data-slot-aria="col-alert" type="button"></button>
+<button aria-expanded="false" aria-haspopup="dialog" aria-label="Filters" class="col__ib" data-h="fl" data-slot-aria="col-filter" type="button"><svg aria-hidden="true" class="ico ico--1"><use href="#i-filter"></use></svg><span class="col__fn num" data-h="fn"></span></button>
+</span>
+</div>
+<div class="col__b"><div aria-label="Migrated" class="col__list" role="list"></div><div class="col__empty empty" hidden=""></div><div class="col__more" hidden=""><svg aria-hidden="true" class="ico ico--1 ico--spin"><use href="#i-loading"></use></svg><span data-slot="more-rows">Loading more…</span></div></div>
+</section>
+</div>
+<div class="scr l-token" id="scrToken">
+<section aria-label="Token" class="pn th" id="tkbar"></section>
+<section aria-label="Chart" class="pn pn--chart">
+<div class="bar ctb">
+<span aria-label="Timeframe" class="tf" id="tf" role="radiogroup"><button data-tf="1m" type="button">1m</button><button data-tf="5m" type="button">5m</button><button class="is-on" data-tf="15m" type="button">15m</button><button data-tf="1h" type="button">1h</button><button data-tf="4h" type="button">4h</button><button data-tf="1d" type="button">1d</button></span>
+<span aria-hidden="true" class="vsep"></span>
+<span class="acct"><button aria-controls="indMenu" aria-expanded="false" aria-haspopup="true" class="btn btn--ghost" id="indBtn" type="button"><svg aria-hidden="true" class="ico"><use href="#i-display"></use></svg><span data-slot="ind-button">Display</span></button>
+<div class="wm pop pop--l" hidden="" id="indMenu" role="group">
+<label class="wm__ck"><input data-ind="ma" type="checkbox"/><i class="sw-ma"></i><span data-slot="ind-ma">MA 20</span></label>
+<label class="wm__ck"><input data-ind="ema" type="checkbox"/><i class="sw-ema"></i><span data-slot="ind-ema">EMA 50</span></label>
+<label class="wm__ck"><input data-ind="vwap" type="checkbox"/><i class="sw-vwap"></i><span data-slot="ind-vwap">VWAP</span></label>
+<div class="wm__sep" role="separator"></div>
+<label class="wm__ck"><input data-ev="x" type="checkbox"/><svg aria-hidden="true" class="ico ico--1 wm__ei" viewbox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" fill="currentColor" stroke="none"></path></svg><span data-slot="ev-x">X posts</span></label>
+<label class="wm__ck"><input data-ev="burn" type="checkbox"/><svg aria-hidden="true" class="ico ico--1 wm__ei is-burn"><use href="#i-burn"></use></svg><span data-slot="ev-burn">Burns</span></label>
+<label class="wm__ck"><input data-ev="dev" type="checkbox"/><span aria-hidden="true" class="wm__eb">B</span><span data-slot="ev-dev">Dev trades</span></label>
+</div></span>
+<span class="ctb__r">
+<span aria-label="Chart value" class="tog" id="cMode" role="radiogroup"><button aria-checked="true" class="is-on" data-cm="price" role="radio" type="button"><span data-slot="lbl-price">Price</span></button><span aria-hidden="true">/</span><button aria-checked="false" data-cm="mc" role="radio" type="button"><span data-slot="lbl-mc">MC</span></button></span>
+<span aria-hidden="true" class="vsep"></span>
+<span aria-label="Chart unit" class="tog" id="cUnit" role="radiogroup"><button aria-checked="true" class="is-on" data-cu="usd" role="radio" type="button">USD</button><span aria-hidden="true">/</span><button aria-checked="false" data-cu="pair" id="cUnitPair" role="radio" type="button">ETH</button></span>
+</span>
+</div>
+<div class="chart" id="chartWrap"><div class="chart__host" id="chartbox"></div><div class="chart__lg" id="chartLg"><span id="chartId"></span><span class="chart__ohlc" id="ohlc"></span></div><div class="chart__note" id="chartNote"></div><div class="chart__leg" hidden="" id="indLeg"></div></div>
+</section>
+<div aria-label="Resize chart and activity" aria-orientation="horizontal" class="rs" id="actRs" role="separator" title="Drag to resize · double-click to reset"></div>
+<section aria-label="Activity" class="pn pn--act">
+<div class="pn__h"><div class="tabs" id="tabs" role="tablist">
+<button aria-selected="true" class="is-on" data-tab="trades" role="tab" type="button"><svg aria-hidden="true" class="ico"><use href="#i-swap"></use></svg><span data-slot="tab-trades">Trades</span></button><button data-tab="holders" role="tab" type="button"><svg aria-hidden="true" class="ico"><use href="#i-holders"></use></svg><span data-slot="tab-holders">Holders</span> <span class="tabs__n num" id="tabHoldN"></span></button>
+<button data-tab="traders" role="tab" type="button"><svg aria-hidden="true" class="ico"><use href="#i-trophy"></use></svg><span data-slot="tab-traders">Top traders</span></button><button data-tab="snipers" role="tab" type="button"><svg aria-hidden="true" class="ico"><use href="#i-snipers"></use></svg><span data-slot="tab-snipers">Snipers</span></button>
+<button data-tab="bundles" role="tab" type="button"><svg aria-hidden="true" class="ico"><use href="#i-bundles"></use></svg><span data-slot="tab-bundles">Bundles</span></button><button data-tab="creator" role="tab" type="button"><svg aria-hidden="true" class="ico"><use href="#i-dev"></use></svg><span data-slot="tab-creator">Creator</span></button>
+</div>
+<span class="pn__x"><span class="live__ago" id="tokAgo"></span><button aria-pressed="false" class="btn btn--ghost btn--s live__pause" data-testid="live-pause" id="tokPause" type="button"><span data-slot="live-pause">Pause</span></button><span class="live badge" id="tokLive"><span class="dot dot--off"></span><span data-slot="live">Live</span></span></span>
+</div>
+<div class="pn__b" id="tabBody"></div>
+</section>
+<aside aria-label="Token sidebar" class="pn side" id="side">
+<section aria-label="AI read" class="side__sec side__brief" id="tkBrief"><span class="eyebrow"><svg aria-hidden="true" class="ico ico--1"><use href="#i-ask"></use></svg><span data-slot="ai-title">AI read</span></span><p class="prose is-wait" data-slot="ai-loading" id="tkBriefTxt">Reading the launch…</p></section>
+<div class="swin" id="tkWinW"><div aria-label="Price change" class="swin__seg" id="tkWin" role="radiogroup"></div></div>
+<div class="side__s2" id="sideS2">
+<div aria-live="off" class="sflow" id="tkFlow"></div>
+<section aria-label="Order" class="side__sec a-order" id="ticket">
+<div class="tkt">
+<div aria-label="Side" class="seg seg--side" id="bs" role="radiogroup"><button aria-checked="true" class="is-buy" data-side="buy" data-testid="side-buy" role="radio" type="button"><span data-slot="ticket-buy">Buy</span></button><button aria-checked="false" data-side="sell" data-testid="side-sell" role="radio" type="button"><span data-slot="ticket-sell">Sell</span></button></div>
+<div class="tkt__bal" id="tbal"></div>
+<label class="fld" id="amtFld"><span class="fld__l" data-slot="ticket-amount">Amount</span><input aria-label="Amount" autocomplete="off" data-testid="order-amount" id="amt" inputmode="decimal" value="0.05"/><span id="amtIco"></span><button class="btn btn--ghost" disabled="" id="amtUnit" type="button">ETH</button></label>
+<div class="tkt__qw" id="qw"><div class="tkt__q" id="qs"></div><div class="tkt__qb" id="qb"></div></div><span class="fld__msg tkt__qerr" id="qErr" role="alert"></span>
+<dl class="dl" id="route"></dl>
+<details class="tkt__det" id="tktDet"><summary><span data-slot="ticket-details">Details</span><svg aria-hidden="true" class="ico ico--1"><use href="#i-chev-down"></use></svg></summary>
+<dl class="dl" id="routeX"></dl>
+<div class="tkt__rules" id="tktRules"></div>
+</details>
+<button class="btn btn--buy btn--l btn--block" data-testid="order-cta" id="cta" type="button"></button>
+<div class="tkt__msg" data-testid="order-status" id="tmsg" role="status"></div>
+<div class="tkt__warn" id="tWarn"><span data-slot="risk-short" id="tWarnT">New tokens can drop to zero. Data, not advice.</span><button aria-controls="tnote" aria-expanded="false" class="tkt__i" id="tWarnB" type="button"><span class="sr" data-slot="stock-disc-lbl">Stock tokens</span><svg aria-hidden="true" class="ico ico--1"><use href="#i-info"></use></svg></button></div>
+<div class="note" hidden="" id="tnote"><span><span data-slot="stock-disc-ord" hidden="" id="tnoteOrd">This order buys a stock token first. Stock Tokens are not available to US persons and are restricted in Canada, the UK, Switzerland and other countries.</span><span data-slot="stock-disc" id="tnoteGen">Stock Tokens are not available to US persons and are restricted in Canada, the UK, Switzerland and other countries.</span> <span data-slot="risk-footer">New tokens can drop to zero. Noryx shows data, not advice. Trade only what you can afford to lose.</span></span></div>
+</div>
+</section>
+</div>
+<section aria-labelledby="tkSecT" class="side__sec" id="tkSecW"><span class="eyebrow" data-slot="eb-holders">Holders</span><h2 class="side__h"><svg aria-hidden="true" class="ico"><use href="#i-holders"></use></svg><span data-slot="sec-security" id="tkSecT">Who's in</span><span class="side__hx" id="secSt"></span></h2><dl class="sgrid" id="tkSec"></dl></section>
+<section aria-labelledby="scT" class="side__sec a-ai" id="aiPn">
+<div id="aiScore"></div>
+<div id="aiFac"></div>
+<button aria-expanded="false" class="side__more" hidden="" id="facAll" type="button"><span data-slot="score-all">All factors</span><svg aria-hidden="true" class="ico ico--1"><use href="#i-chev-right"></use></svg></button>
+</section>
+<details class="side__sec side__ai" id="aiDet">
+<summary><svg aria-hidden="true" class="ico"><use href="#i-ask"></use></svg><span class="side__h" data-slot="ai-title">AI read</span><span class="via"><span class="mk mk--1" id="mdlLogo"></span><span data-trunc-ok="" id="mdlName">—</span><span data-slot="ai-via">via</span><span class="mk mk--1" id="orLogo"></span>OpenRouter</span><svg aria-hidden="true" class="ico ico--1 side__chev"><use href="#i-chev-down"></use></svg></summary>
+<div class="ai" id="aiBody">
+<p class="prose is-wait" data-slot="ai-loading" id="aiBrief">Reading the launch…</p>
+<div class="prose" id="aiQ"></div>
+<div class="prose" id="aiOut"></div>
+<div class="sugg" id="sugg"><button class="chip" data-full="" type="button"><span data-slot="ai-full">Full read</span></button><button class="chip" type="button"><span data-slot="ask-s1">Who holds the most?</span></button><button class="chip" type="button"><span data-slot="ask-s2">Creator history</span></button><button class="chip" type="button"><span data-slot="ask-s3">Snipers and bundles</span></button></div>
+<label class="ask"><svg aria-hidden="true" class="ico ico--1"><use href="#i-ask"></use></svg><b>&gt;</b><input aria-label="Ask about this token" autocomplete="off" data-slot="ask-placeholder" id="ask" placeholder="Ask about this token…"/><kbd>⏎</kbd></label>
+<p class="ai__note" data-slot="ai-note">AI read of on-chain data. It can be wrong. Not advice.</p>
+</div>
+</details>
+<section aria-labelledby="posT" class="side__sec a-pos" hidden="" id="posPn">
+<h2 class="side__h" id="posT"><svg aria-hidden="true" class="ico"><use href="#i-portfolio"></use></svg><span data-slot="pf-tab-pos">Positions</span><a class="link side__hx" data-link="" href="/portfolio"><span data-slot="nav-portfolio">Portfolio</span></a></h2>
+<div id="posBody"></div>
+</section>
+<section aria-labelledby="poolT" class="side__sec"><span class="eyebrow" data-slot="eb-pool">On chain</span><h2 class="side__h" id="poolT"><svg aria-hidden="true" class="ico"><use href="#i-liquidity"></use></svg><span data-slot="pool-title">Pool and token</span></h2><dl class="dl side__dl" id="tkPool"></dl></section>
+</aside>
+</div>
+<div class="scr pg" id="scrPage"></div>
+</main>
+<footer aria-live="polite" class="status" id="status" role="status">
+<span class="status__i" id="stLive"><span class="dot dot--off"></span><span data-slot="reconnecting" id="stLiveT">Reconnecting…</span></span>
+<span class="status__i"><span class="mk mk--1" id="stNet"></span><span data-slot="status-net">Robinhood Chain</span></span>
+<span class="status__i"><span data-slot="status-block">Block</span> <span class="num" id="stBlock">—</span></span>
+<span class="status__i">ETH <span class="num" id="stEth">—</span></span>
+<span class="status__i t-fee" data-slot="status-fee">0% platform fee</span>
+<span class="status__i" hidden="" id="stRules"><svg aria-hidden="true" class="ico ico--1"><use href="#i-bell"></use></svg><span data-slot="tpsl-on">Watching this tab</span> <span class="num" id="stRulesN"></span></span>
+<span class="status__sp"></span>
+<span class="acct status__help"><a class="status__a" data-link="" href="/settings/api"><svg aria-hidden="true" class="ico ico--1"><use href="#i-api"></use></svg><span data-slot="st-api">API</span></a><a class="status__a" data-link="" href="/docs"><svg aria-hidden="true" class="ico ico--1"><use href="#i-book"></use></svg><span data-slot="st-docs">Docs</span></a><a class="status__a" data-link="" data-nav="roadmap" href="/roadmap"><svg aria-hidden="true" class="ico ico--1"><use href="#i-roadmap"></use></svg><span data-slot="rm-nav">Roadmap</span></a><a class="status__a" data-link="" href="/trust"><svg aria-hidden="true" class="ico ico--1"><use href="#i-shield"></use></svg><span data-slot="nav-security">Security Center</span></a><a class="status__a" data-link="" href="/terms"><svg aria-hidden="true" class="ico ico--1"><use href="#i-terms"></use></svg><span data-slot="page-terms">Terms</span></a><button aria-controls="helpPop" aria-expanded="false" aria-haspopup="dialog" aria-label="Shortcuts and pages" class="status__q" data-slot-aria="help-aria" id="helpB" type="button">?</button>
+<div aria-labelledby="helpT" class="wm pop pop--up" hidden="" id="helpPop" role="dialog">
+<div class="wm__h" data-slot="help-keys" id="helpT">Shortcuts</div>
+<div class="keys" id="keys"></div>
+<nav aria-label="Noryx pages" class="keys__pages"><a data-link="" href="/guide"><svg aria-hidden="true" class="ico ico--1"><use href="#i-guide"></use></svg><span data-slot="page-guide">Guide</span></a><a data-link="" href="/security"><svg aria-hidden="true" class="ico ico--1"><use href="#i-shield"></use></svg><span data-slot="page-security">Security</span></a><a data-link="" href="/support"><svg aria-hidden="true" class="ico ico--1"><use href="#i-support"></use></svg><span data-slot="page-support">Support</span></a><a data-link="" data-nav="roadmap" href="/roadmap"><svg aria-hidden="true" class="ico ico--1"><use href="#i-roadmap"></use></svg><span data-slot="rm-nav">Roadmap</span></a><a data-link="" href="/privacy"><svg aria-hidden="true" class="ico ico--1"><use href="#i-lock"></use></svg><span data-slot="page-privacy">Privacy</span></a><a data-link="" href="/terms"><svg aria-hidden="true" class="ico ico--1"><use href="#i-terms"></use></svg><span data-slot="page-terms">Terms</span></a></nav>
+</div></span>
+</footer>
+</div>
+<aside aria-hidden="true" aria-label="Ask AI" class="drawer" id="drawer">
+<div class="pn__h"><span class="pn__t" data-slot="ask-title">Ask AI</span><span class="pn__x via"><span class="mk mk--1" id="dwModel"></span><span data-trunc-ok="" id="dwModelName">—</span><span data-slot="ai-via">via</span><span class="mk mk--1" id="dwOr"></span>OpenRouter<button aria-label="Close" class="btn btn--icon" id="dwClose" type="button"><svg aria-hidden="true" class="ico"><use href="#i-close"></use></svg></button></span></div>
+<div class="drawer__q" hidden="" id="dwQ"></div>
+<div class="drawer__o"><div class="prose" id="dwOut"></div></div>
+<div class="sugg" id="dwSugg"><button class="chip" type="button"><span data-slot="ask-net-s1">What's launching right now?</span></button><button class="chip" type="button"><span data-slot="ask-net-s2">Which launches are close to bonding?</span></button><button class="chip" type="button"><span data-slot="ask-net-s3">Where are smart wallets buying?</span></button></div>
+<label class="ask"><svg aria-hidden="true" class="ico ico--1"><use href="#i-ask"></use></svg><b>&gt;</b><input aria-label="Ask about Robinhood Chain right now" autocomplete="off" data-slot="board-ask-placeholder" id="dwAsk" placeholder="Ask about Robinhood Chain right now…"/><kbd>⏎</kbd></label>
+</aside>
+<div class="tkt-bar" id="tktBar"><button class="btn btn--buy" data-side-go="buy" type="button"><svg aria-hidden="true" class="ico"><use href="#i-buy"></use></svg><span data-slot="cta-buy">Buy</span></button><button class="btn btn--sell" data-side-go="sell" type="button"><svg aria-hidden="true" class="ico"><use href="#i-sell"></use></svg><span data-slot="cta-sell">Sell</span></button></div>
+<nav aria-label="Mobile" class="bnav" id="bnav">
+<a data-link="" data-nav="board" href="/board"><svg aria-hidden="true" class="ico ico--3"><use href="#i-board"></use></svg><span data-slot="nav-board">Board</span></a>
+<a data-link="" data-nav="trending" href="/trending"><svg aria-hidden="true" class="ico ico--3"><use href="#i-trending"></use></svg><span data-slot="nav-trending">Trending</span></a>
+<a data-link="" data-nav="tracker" href="/tracker"><svg aria-hidden="true" class="ico ico--3"><use href="#i-tracker"></use></svg><span data-slot="nav-tracker">Tracker</span></a>
+<a data-link="" data-nav="portfolio" href="/portfolio"><svg aria-hidden="true" class="ico ico--3"><use href="#i-portfolio"></use></svg><span data-slot="nav-portfolio">Portfolio</span></a>
+<button aria-expanded="false" aria-haspopup="menu" id="bnMore" type="button"><svg aria-hidden="true" class="ico ico--3"><use href="#i-more"></use></svg><span data-slot="nav-more">More</span></button>
+</nav>
+<div class="wm bsheet" hidden="" id="bnSheet" role="menu">
+<a class="wm__it" data-link="" data-nav="ask" href="/ask" role="menuitem"><svg aria-hidden="true" class="ico"><use href="#i-ask"></use></svg><span data-slot="nav-ask">Ask AI</span></a>
+<a class="wm__it" data-link="" data-nav="apikeys" href="/settings/api" role="menuitem"><svg aria-hidden="true" class="ico"><use href="#i-api"></use></svg><span data-slot="nav-api">API</span></a>
+<a class="wm__it" data-link="" data-nav="docs" href="/docs" role="menuitem"><svg aria-hidden="true" class="ico"><use href="#i-book"></use></svg><span data-slot="nav-docs">Docs</span></a>
+<a class="wm__it" data-link="" data-nav="roadmap" href="/roadmap" role="menuitem"><svg aria-hidden="true" class="ico"><use href="#i-roadmap"></use></svg><span data-slot="rm-nav">Roadmap</span></a>
+<a class="wm__it" data-link="" href="/trust" role="menuitem"><svg aria-hidden="true" class="ico"><use href="#i-shield"></use></svg><span data-slot="nav-security">Security Center</span></a><a class="wm__it" data-link="" href="/terms" role="menuitem"><svg aria-hidden="true" class="ico"><use href="#i-terms"></use></svg><span data-slot="page-terms">Terms</span></a><a class="wm__it" data-link="" data-nav="perps" href="/perps" role="menuitem"><svg aria-hidden="true" class="ico"><use href="#i-perps"></use></svg><span data-slot="nav-perps">Perps</span><span class="nav__soon" data-slot="nav-beta">Beta</span></a>
+</div>
+<div aria-live="polite" class="toasts" id="toasts"></div>
+<div aria-label="Column settings" class="wm pop wm--fixed colpop" hidden="" id="colPop" role="dialog"></div>
+<div class="pv" hidden="" id="pv" role="tooltip"></div>
+<script src="/js/lightweight-charts.standalone.production.js"></script>
+<script src="/js/format.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/guard.js"></script>
+<script src="/js/wallet.js?v=noryx-privy-email-only-1"></script>
+<script src="/js/icons.js"></script>
+<script src="/js/pages.js?v=noryx-no-demo-2"></script>
+<script src="/js/perpmath.js"></script>
+<script src="/js/perps.js?v=noryx-live-chart-5"></script>
+<script src="/js/lighter.js"></script>
+<script src="/js/bridge.js?v=noryx-brand-3"></script>
+<script src="/js/chartev.js"></script>
+<script src="/js/trust.js?v=noryx-sentro-chain-logos-1"></script>
+<script src="/js/roadmap.js?v=noryx-live-roadmap-3"></script>
+<script src="/js/app.js?v=noryx-live-board-4"></script>
+<script src="/js/api-live.js?v=noryx-live-api-1"></script>
+<script src="/js/tokenca.js?v=noryx-local-brand-icon-1"></script>
+<script>
+  (() => {
+    const boot = document.getElementById("boot");
+    const retry = document.getElementById("bootR");
+    const line = document.getElementById("bootL");
+    const maxWait = 60 * 1000;
+    let closed = false;
+
+    if (!boot || !retry || !line) return;
+
+    const closeBoot = () => {
+      if (closed) return;
+      closed = true;
+      boot.setAttribute("aria-busy", "false");
+      boot.style.transition = "opacity .35s ease";
+      boot.style.opacity = "0";
+      window.setTimeout(() => boot.remove(), 400);
+    };
+
+    const showRetry = () => {
+      if (closed) return;
+      line.hidden = false;
+      line.textContent = "Noryx belum bisa masuk. Coba lagi?";
+      retry.hidden = false;
+      retry.focus({ preventScroll: true });
+    };
+
+    retry.addEventListener("click", () => {
+      retry.disabled = true;
+      retry.textContent = "Memuat ulang…";
+      window.location.reload();
+    });
+
+    window.addEventListener("load", () => {
+      window.setTimeout(closeBoot, 250);
+    }, { once: true });
+    window.setTimeout(showRetry, maxWait);
+  })();
+</script>
+<script>
+  (() => {
+    const noryxTitle = "Noryx · AI terminal for Robinhood Chain";
+    const keepNoryxBrand = () => {
+      if (document.title !== noryxTitle) document.title = noryxTitle;
+      document.querySelectorAll("[aria-label='Noryx']").forEach((el) => {
+        el.setAttribute("aria-label", "Noryx");
+      });
+    };
+    keepNoryxBrand();
+    new MutationObserver(keepNoryxBrand).observe(document.head, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+  })();
+</script>
+</body>
+</html>

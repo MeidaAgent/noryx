@@ -1,0 +1,129 @@
+.api-live {
+  display: grid;
+  gap: 16px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.api-live__head,
+.api-live__status,
+.api-live__panel,
+.api-live__endpoint {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--n-1);
+}
+
+.api-live__head,
+.api-live__status,
+.api-live__panel {
+  padding: 20px;
+}
+
+.api-live__title {
+  margin: 0 0 8px;
+  color: var(--t-1);
+  font: 500 24px/1.2 var(--f-head);
+}
+
+.api-live__muted {
+  margin: 0;
+  color: var(--t-2);
+}
+
+.api-live__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 28px;
+}
+
+.api-live__metric {
+  display: grid;
+  gap: 4px;
+}
+
+.api-live__metric small {
+  color: var(--t-2);
+}
+
+.api-live__metric b {
+  color: var(--t-1);
+  font: 500 14px/1.4 var(--f-mono);
+}
+
+.api-live__ok {
+  color: var(--a) !important;
+}
+
+.api-live__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.api-live__endpoint {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.api-live__endpoint code,
+.api-live__code {
+  color: var(--t-1);
+  font: 12px/1.55 var(--f-mono);
+  overflow-wrap: anywhere;
+}
+
+.api-live__endpoint p {
+  margin: 0;
+  color: var(--t-2);
+  font-size: 13px;
+}
+
+.api-live__endpoint button {
+  justify-self: start;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--t-1);
+  cursor: pointer;
+}
+
+.api-live__endpoint button:hover {
+  border-color: var(--a);
+}
+
+.api-live__result {
+  max-height: 300px;
+  overflow: auto;
+  margin: 12px 0 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--n-0);
+  color: var(--t-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.api-live__warning {
+  padding: 12px;
+  border-left: 2px solid var(--a);
+  background: var(--a-tint);
+  color: var(--t-body);
+}
+
+.api-live__link {
+  color: var(--a);
+}
+
+@media (max-width: 767px) {
+  .api-live {
+    padding: 12px;
+  }
+}
