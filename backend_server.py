@@ -1210,24 +1210,28 @@ def pons_feed(query, search_term=""):
         raise ValueError("unsupported Pons feed column")
     with PONS_LAUNCH_CACHE_LOCK:
         if time.time() - PONS_LAUNCH_CACHE["updated_at"] >= 15:
-            head = int(rpc_call("eth_blockNumber", []), 16)
-            start = max(0, head - max(1, PONS_FEED_WINDOW_BLOCKS))
-            logs = pons_launch_logs(start, head)
-            ordered_logs = sorted(logs, key=lambda event: int(event["blockNumber"], 16), reverse=True)
-            pons_block_timestamps(
-                [int(event["blockNumber"], 16) for event in ordered_logs[:200]]
-            )
-            with ThreadPoolExecutor(max_workers=12) as executor:
-                chain_rows = list(executor.map(pons_launch_row, ordered_logs[:200]))
-            PONS_LAUNCH_CACHE.update(
-                {
-                    "updated_at": time.time(),
-                    "head": head,
-                    "window_start": start,
-                    "rows": chain_rows,
-                    "scan_truncated": len(ordered_logs) > 200,
-                }
-            )
+            try:
+                head = int(rpc_call("eth_blockNumber", []), 16)
+                start = max(0, head - max(1, PONS_FEED_WINDOW_BLOCKS))
+                logs = pons_launch_logs(start, head)
+                ordered_logs = sorted(logs, key=lambda event: int(event["blockNumber"], 16), reverse=True)
+                pons_block_timestamps(
+                    [int(event["blockNumber"], 16) for event in ordered_logs[:200]]
+                )
+                with ThreadPoolExecutor(max_workers=12) as executor:
+                    chain_rows = list(executor.map(pons_launch_row, ordered_logs[:200]))
+                PONS_LAUNCH_CACHE.update(
+                    {
+                        "updated_at": time.time(),
+                        "head": head,
+                        "window_start": start,
+                        "rows": chain_rows,
+                        "scan_truncated": len(ordered_logs) > 200,
+                    }
+                )
+            except (RuntimeError, ValueError, TypeError, requests.RequestException):
+                if not PONS_LAUNCH_CACHE["rows"]:
+                    raise
         head = PONS_LAUNCH_CACHE["head"]
         start = PONS_LAUNCH_CACHE["window_start"]
         chain_rows = PONS_LAUNCH_CACHE["rows"]
@@ -3708,21 +3712,32 @@ class NoryxHandler(BaseHTTPRequestHandler):
                 f"event: hello\ndata: {json.dumps({**status, 't': status['timestamp']})}\n\n".encode()
             )
             self.wfile.flush()
-            for _ in range(20):
+            for _ in range(90):
                 time.sleep(3)
-                status = pons_status_snapshot()
+                try:
+                    status = pons_status_snapshot()
+                except (RuntimeError, ValueError, TypeError, requests.RequestException):
+                    status = {
+                        "head": cursor,
+                        "timestamp": int(time.time()),
+                        "eth_usd": 0,
+                        "warming": True,
+                    }
                 head = status["head"]
                 if head > cursor:
-                    logs = pons_launch_logs(cursor + 1, head)
-                    ordered = sorted(logs, key=lambda event: int(event["blockNumber"], 16))
-                    with ThreadPoolExecutor(max_workers=12) as executor:
-                        rows = list(executor.map(pons_launch_row, ordered))
-                    rows = [row for row in rows if pons_curve_is_tradable(row)]
-                    if rows:
-                        rows = [enrich_pons_row(row) for row in rows]
-                        payload = json.dumps({"rows": rows, "source": "pons_chain_rpc"}, ensure_ascii=False)
-                        self.wfile.write(f"event: launch\ndata: {payload}\n\n".encode())
-                    cursor = head
+                    try:
+                        logs = pons_launch_logs(cursor + 1, head)
+                        ordered = sorted(logs, key=lambda event: int(event["blockNumber"], 16))
+                        with ThreadPoolExecutor(max_workers=12) as executor:
+                            rows = list(executor.map(pons_launch_row, ordered))
+                        rows = [row for row in rows if pons_curve_is_tradable(row)]
+                        if rows:
+                            rows = [enrich_pons_row(row) for row in rows]
+                            payload = json.dumps({"rows": rows, "source": "pons_chain_rpc"}, ensure_ascii=False)
+                            self.wfile.write(f"event: launch\ndata: {payload}\n\n".encode())
+                        cursor = head
+                    except (RuntimeError, ValueError, TypeError, requests.RequestException):
+                        pass
                 self.wfile.write(
                     f"event: tick\ndata: {json.dumps({**status, 't': status['timestamp']})}\n\n".encode()
                 )
