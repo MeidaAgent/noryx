@@ -102,6 +102,7 @@ PONS_TOKEN_RECORD_CACHE = {}
 PONS_MARKET_CACHE = {}
 PONS_LAUNCH_CACHE = {"updated_at": 0, "head": 0, "window_start": 0, "rows": [], "scan_truncated": False}
 PONS_LAUNCH_CACHE_LOCK = threading.Lock()
+PONS_BONDING_CACHE = {"updated_at": 0, "rows": []}
 PONS_LAUNCH_BLOCK_CACHE = {}
 PONS_TRADE_LOG_CACHE = {}
 PONS_TRADE_LOG_CACHE_LOCK = threading.Lock()
@@ -1244,6 +1245,11 @@ def pons_feed(query, search_term=""):
             for row in curve_rows
             if row.get("progress") is not None and row["progress"] >= 5
         ]
+        if candidates:
+            PONS_BONDING_CACHE["updated_at"] = time.time()
+            PONS_BONDING_CACHE["rows"] = candidates
+        elif PONS_BONDING_CACHE["rows"] and time.time() - PONS_BONDING_CACHE["updated_at"] < 300:
+            candidates = PONS_BONDING_CACHE["rows"]
     else:
         candidates = [row for row in chain_rows if row["phase"] != 0]
 
