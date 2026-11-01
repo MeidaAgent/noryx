@@ -3962,22 +3962,37 @@ class NoryxHandler(BaseHTTPRequestHandler):
             )
             return
         if path == "/api/feed/lists":
-            db = db_connect()
             try:
-                rows = db.execute(
-                    "SELECT token FROM pons_launches ORDER BY launch_block DESC LIMIT 200"
-                ).fetchall()
-            finally:
-                db.close()
-            items = []
-            for (t_addr,) in rows:
-                meta = PONS_METADATA_CACHE.get(t_addr) or {}
-                items.append({
-                    "token": t_addr,
-                    "name": meta.get("name") or t_addr[:8],
-                    "symbol": meta.get("symbol") or "TKN",
-                })
-            self.send_json(200, {"items": items, "rows": items, "total": len(items), "source": "pons_index"})
+                columns = {}
+                items = []
+                seen = set()
+                for column in ("new", "bonding", "migrated"):
+                    payload = pons_feed({"column": column, "limit": "200", "offset": "0"})
+                    column_rows = payload.get("rows", [])
+                    columns[column] = len(column_rows)
+                    for row in column_rows:
+                        token = str(row.get("token", "")).lower()
+                        if not token or token in seen:
+                            continue
+                        seen.add(token)
+                        items.append({
+                            "token": row["token"],
+                            "name": row.get("name") or row["token"][:8],
+                            "symbol": row.get("symbol") or "TKN",
+                        })
+                items.sort(key=lambda item: item["token"])
+                self.send_json(
+                    200,
+                    {
+                        "items": items,
+                        "rows": items,
+                        "total": len(items),
+                        "columns": columns,
+                        "source": "pons_chain_rpc",
+                    },
+                )
+            except (RuntimeError, ValueError, TypeError, requests.RequestException) as exc:
+                self.send_json(503, {"error": "pons_feed_lists_unavailable", "detail": str(exc), "items": [], "rows": [], "total": 0})
             return
         if path in {
             "/api/feed",
