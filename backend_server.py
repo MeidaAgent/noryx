@@ -1,4 +1,6 @@
+import ipaddress
 import json
+import socket
 import os
 import re
 import sqlite3
@@ -107,15 +109,30 @@ ETH_USD_CACHE_LOCK = threading.Lock()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", os.getenv("NORYX_AI_API_KEY", "")).strip()
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
 IPFS_GATEWAYS = (
+    "https://4everland.io/ipfs/",
     "https://gateway.pinata.cloud/ipfs/",
-    "https://cloudflare-ipfs.com/ipfs/",
     "https://ipfs.io/ipfs/",
+    "https://cloudflare-ipfs.com/ipfs/",
 )
 IMAGE_HOSTS = {
     "m.rapidlaunch.io",
     "images.rapidlaunch.io",
     "images.pump.fun",
     "axiomtrading.sfo3.cdn.digitaloceanspaces.com",
+    "axiom-rh-v2.axiom-cdn.io",
+    "axiomtrading-v2.axiom-cdn.io",
+    "fast-ipfs.com",
+    "ipfs.launchblitz.ai",
+    "pbs.twimg.com",
+    "cdn.dexscreener.com",
+    "raw.githubusercontent.com",
+    "hexwarp.xyz",
+    "gmgn.ai",
+    "files.catbox.moe",
+    "image.solanatracker.io",
+    "j7m.io",
+    "gateway.pinata.cloud",
+    "4everland.io",
 }
 
 
@@ -244,6 +261,18 @@ def init_database():
                 value TEXT NOT NULL
             )"""
         )
+        connection.execute(
+            """CREATE TABLE IF NOT EXISTS token_meta (
+                address TEXT PRIMARY KEY,
+                image TEXT,
+                description TEXT,
+                x_url TEXT,
+                x_handle TEXT,
+                tg_url TEXT,
+                site TEXT,
+                updated_at INTEGER NOT NULL
+            )"""
+        )
 
 
 def json_bytes(payload):
@@ -316,6 +345,196 @@ def pons_token_metadata(address):
         metadata["metadata_error"] = "; ".join(errors)
     PONS_METADATA_CACHE[address] = metadata
     return metadata
+
+
+TOKEN_META_CACHE = {}
+TOKEN_META_LOCK = threading.Lock()
+TOKEN_META_EXECUTOR = ThreadPoolExecutor(max_workers=6, thread_name_prefix="noryx-meta")
+TOKEN_META_FETCHING = set()
+
+
+def decode_socials_tuple(raw_hex):
+    if not raw_hex or len(raw_hex) < 66:
+        return []
+    try:
+        raw = bytes.fromhex(raw_hex.removeprefix("0x"))
+        if len(raw) < 32:
+            return []
+        num_heads = int.from_bytes(raw[:32], "big") // 32
+        if num_heads <= 0 or num_heads > 10:
+            return []
+        strings = []
+        for i in range(num_heads):
+            offset = int.from_bytes(raw[i * 32 : (i + 1) * 32], "big")
+            if offset + 32 <= len(raw):
+                length = int.from_bytes(raw[offset : offset + 32], "big")
+                end = offset + 32 + length
+                if end <= len(raw):
+                    val = raw[offset + 32 : end].decode("utf-8", errors="replace").strip("\x00")
+                    strings.append(val)
+        return strings
+    except Exception:
+        return []
+
+
+def _fetch_token_metadata_extra_sync(address):
+    address = address.lower()
+    calls = [
+        ("eth_call", [{"to": address, "data": "0xfb7f21eb"}, "latest"]),
+        ("eth_call", [{"to": address, "data": "0x7284e416"}, "latest"]),
+        ("eth_call", [{"to": address, "data": "0x53cd512a"}, "latest"]),
+    ]
+    try:
+        results = rpc_batch(calls)
+    except Exception:
+        results = [None, None, None]
+
+    img_raw = decode_abi_string(results[0]) if results[0] else None
+    desc_raw = decode_abi_string(results[1]) if results[1] else None
+    socs = decode_socials_tuple(results[2]) if results[2] else []
+
+    image = img_raw
+    description = desc_raw
+    x_url = None
+    x_handle = None
+    tg_url = None
+    site = None
+
+    for s in socs:
+        s = s.strip()
+        if not s:
+            continue
+        low = s.lower()
+        if "twitter.com" in low or "x.com" in low:
+            if not x_url:
+                x_url = s
+                parsed_path = urlparse(s).path.strip("/").split("/")
+                if parsed_path and parsed_path[0] and parsed_path[0] not in ("i", "intent"):
+                    x_handle = parsed_path[0].lstrip("@").split("?")[0]
+        elif "t.me" in low or "telegram.me" in low:
+            if not tg_url:
+                tg_url = s
+        elif low.startswith(("http://", "https://")):
+            if not site:
+                site = s
+
+    if image and (image.endswith(".json") or "/metadata" in image):
+        try:
+            fetch_url = image
+            if image.startswith("ipfs://"):
+                fetch_url = IPFS_GATEWAYS[0] + image[7:].removeprefix("ipfs/")
+            r = requests.get(fetch_url, headers={"user-agent": "Noryx/1.0"}, timeout=3)
+            if r.status_code == 200 and "application/json" in r.headers.get("content-type", ""):
+                meta_json = r.json()
+                if isinstance(meta_json, dict):
+                    image = meta_json.get("image") or meta_json.get("image_url") or meta_json.get("imageUrl") or image
+                    if not description:
+                        description = meta_json.get("description") or meta_json.get("desc")
+                    if not x_url:
+                        x_url = meta_json.get("twitter") or meta_json.get("x")
+                    if not tg_url:
+                        tg_url = meta_json.get("telegram") or meta_json.get("tg")
+                    if not site:
+                        site = meta_json.get("website") or meta_json.get("site")
+        except Exception:
+            pass
+
+    if image:
+        image = image.strip()
+        if not (image.startswith("ipfs://") or image.startswith("https://") or re.fullmatch(r"[A-Za-z0-9_-]{20,100}", image)):
+            if image.startswith("http://"):
+                image = "https://" + image[7:]
+            else:
+                image = None
+
+    record = {
+        "address": address,
+        "image": image,
+        "description": description or "",
+        "x_url": x_url,
+        "x_handle": x_handle,
+        "tg_url": tg_url,
+        "site": site,
+        "updated_at": int(time.time()),
+    }
+
+    try:
+        with sqlite3.connect(DATABASE) as conn:
+            conn.execute(
+                """INSERT INTO token_meta(address, image, description, x_url, x_handle, tg_url, site, updated_at)
+                   VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(address) DO UPDATE SET
+                       image = excluded.image,
+                       description = excluded.description,
+                       x_url = excluded.x_url,
+                       x_handle = excluded.x_handle,
+                       tg_url = excluded.tg_url,
+                       site = excluded.site,
+                       updated_at = excluded.updated_at""",
+                (
+                    address,
+                    record["image"],
+                    record["description"],
+                    record["x_url"],
+                    record["x_handle"],
+                    record["tg_url"],
+                    record["site"],
+                    record["updated_at"],
+                ),
+            )
+    except sqlite3.Error:
+        pass
+
+    with TOKEN_META_LOCK:
+        TOKEN_META_CACHE[address] = record
+    return record
+
+
+def pons_token_metadata_extra(address, sync_fallback=False):
+    address = address.lower()
+    with TOKEN_META_LOCK:
+        cached = TOKEN_META_CACHE.get(address)
+        if cached is not None:
+            return cached
+
+    try:
+        with sqlite3.connect(DATABASE) as conn:
+            row = conn.execute(
+                "SELECT image, description, x_url, x_handle, tg_url, site, updated_at FROM token_meta WHERE address = ?",
+                (address,),
+            ).fetchone()
+            if row is not None:
+                record = {
+                    "address": address,
+                    "image": row[0],
+                    "description": row[1],
+                    "x_url": row[2],
+                    "x_handle": row[3],
+                    "tg_url": row[4],
+                    "site": row[5],
+                    "updated_at": row[6],
+                }
+                with TOKEN_META_LOCK:
+                    TOKEN_META_CACHE[address] = record
+                return record
+    except sqlite3.Error:
+        pass
+
+    if sync_fallback:
+        return _fetch_token_metadata_extra_sync(address)
+
+    with TOKEN_META_LOCK:
+        if address not in TOKEN_META_FETCHING:
+            TOKEN_META_FETCHING.add(address)
+            def bg_task():
+                try:
+                    _fetch_token_metadata_extra_sync(address)
+                finally:
+                    with TOKEN_META_LOCK:
+                        TOKEN_META_FETCHING.discard(address)
+            TOKEN_META_EXECUTOR.submit(bg_task)
+
+    return {}
 
 
 def pons_trend_token_info(address):
@@ -470,13 +689,19 @@ def pons_launch_row(log):
     PONS_LAUNCH_BLOCK_CACHE[token.lower()] = (time.time(), block_number)
     timestamp = pons_block_timestamp(block_number)
     metadata = pons_token_metadata(token)
+    meta_extra = pons_token_metadata_extra(token)
     row = {
         "token": token,
         "name": metadata.get("name", ""),
         "symbol": metadata.get("symbol", ""),
         "decimals": metadata.get("decimals"),
         "metadata_available": metadata["metadata_available"],
-        "image": None,
+        "image": meta_extra.get("image"),
+        "x_url": meta_extra.get("x_url"),
+        "x_handle": meta_extra.get("x_handle"),
+        "tg_url": meta_extra.get("tg_url"),
+        "site": meta_extra.get("site"),
+        "description": meta_extra.get("description"),
         "chain_id": CHAIN_ID,
         "curve": curve,
         "phase": record["phase"],
@@ -1249,8 +1474,31 @@ def pons_indexer_loop():
         time.sleep(max(0.5, PONS_INDEXER_POLL_SECONDS))
 
 
+def prewarm_token_metadata(limit=60):
+    def _worker():
+        try:
+            with sqlite3.connect(DATABASE) as conn:
+                unfetched = [
+                    row[0]
+                    for row in conn.execute(
+                        """SELECT l.token FROM pons_launches l
+                           LEFT JOIN token_meta m ON l.token = m.address
+                           WHERE m.address IS NULL
+                           ORDER BY l.launch_block DESC
+                           LIMIT ?""",
+                        (limit,),
+                    )
+                ]
+            for token in unfetched:
+                pons_token_metadata_extra(token)
+        except Exception:
+            pass
+    threading.Thread(target=_worker, name="noryx-meta-prewarm", daemon=True).start()
+
+
 def start_pons_indexer():
     global PONS_INDEXER_THREAD
+    prewarm_token_metadata()
     if os.getenv("VERCEL"):
         return
     if PONS_INDEXER_THREAD is not None and PONS_INDEXER_THREAD.is_alive():
@@ -1750,12 +1998,18 @@ def pons_trending(query):
             if supply_raw is not None
             else None
         )
+        meta_extra = pons_token_metadata_extra(item["token"])
         rows.append(
             {
                 "token": item["token"],
                 "name": metadata.get("name", ""),
                 "symbol": metadata.get("symbol", ""),
-                "image": None,
+                "image": meta_extra.get("image"),
+                "x_url": meta_extra.get("x_url"),
+                "x_handle": meta_extra.get("x_handle"),
+                "tg_url": meta_extra.get("tg_url"),
+                "site": meta_extra.get("site"),
+                "description": meta_extra.get("description"),
                 "price_eth": str(price_eth),
                 "price_usd": str(price_usd),
                 "supply": str(supply) if supply is not None else None,
@@ -2637,6 +2891,10 @@ def enrich_pons_row(row):
     if record is None:
         raise ValueError(f"Pons factory has no current launch record for {row['token']}")
     enrich_pons_progress(row, record)
+    meta_extra = pons_token_metadata_extra(row["token"])
+    for k in ("image", "x_url", "x_handle", "tg_url", "site", "description"):
+        if meta_extra.get(k) and not row.get(k):
+            row[k] = meta_extra[k]
     metadata = pons_token_metadata(row["token"])
     market = pons_market_data(row["token"], record, metadata)
     trade_metrics = {}
@@ -2728,6 +2986,7 @@ def pons_token_snapshot(address):
     if record is None:
         return None
     metadata = pons_token_metadata(address)
+    meta_extra = pons_token_metadata_extra(address, sync_fallback=True)
     pair_token = record["pair_token"]
     phase = record["phase"]
     market = pons_market_data(address, record, metadata)
@@ -2737,7 +2996,12 @@ def pons_token_snapshot(address):
         "symbol": metadata.get("symbol", ""),
         "decimals": metadata.get("decimals"),
         "metadata_available": metadata["metadata_available"],
-        "image": None,
+        "image": meta_extra.get("image"),
+        "x_url": meta_extra.get("x_url"),
+        "x_handle": meta_extra.get("x_handle"),
+        "tg_url": meta_extra.get("tg_url"),
+        "site": meta_extra.get("site"),
+        "description": meta_extra.get("description"),
         "chain_id": CHAIN_ID,
         "curve": record["curve"],
         "phase": phase,
@@ -2971,6 +3235,9 @@ class NoryxHandler(BaseHTTPRequestHandler):
         self.send_header("access-control-allow-methods", "GET,POST,PUT,DELETE,OPTIONS")
         self.send_header("access-control-allow-headers", "content-type,authorization")
         self.end_headers()
+
+    def do_HEAD(self):
+        self.do_GET()
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -3475,10 +3742,13 @@ class NoryxHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def serve_ipfs_image(self, cid):
+        cid = cid.split("?")[0].split("#")[0].strip()
         if cid.startswith(("https://", "http://")):
             self.serve_remote_image(cid)
             return
-        if not cid or "/" in cid or "\\" in cid or len(cid) > 160:
+        if cid.startswith("ipfs://"):
+            cid = cid[7:].removeprefix("ipfs/")
+        if not cid or "/" in cid or "\\" in cid or not re.fullmatch(r"[A-Za-z0-9_-]{20,120}", cid):
             self.send_json(400, {"error": "invalid_image_path"})
             return
         for gateway in IPFS_GATEWAYS:
@@ -3486,18 +3756,28 @@ class NoryxHandler(BaseHTTPRequestHandler):
                 response = requests.get(
                     gateway + cid,
                     headers={"user-agent": "Noryx/1.0"},
-                    timeout=8,
+                    timeout=5,
+                    stream=True,
                 )
-                response.raise_for_status()
+                if response.status_code != 200:
+                    continue
                 content_type = response.headers.get("content-type", "image/jpeg").split(";")[0]
                 if not content_type.startswith("image/"):
                     continue
+                body = bytearray()
+                for chunk in response.iter_content(chunk_size=16384):
+                    body.extend(chunk)
+                    if len(body) > 5 * 1024 * 1024:
+                        break
+                if len(body) > 5 * 1024 * 1024:
+                    continue
                 self.send_response(200)
                 self.send_header("content-type", content_type)
-                self.send_header("cache-control", "public, max-age=3600")
-                self.send_header("content-length", str(len(response.content)))
+                self.send_header("cache-control", "public, max-age=86400")
+                self.send_header("content-length", str(len(body)))
+                self.send_header("x-content-type-options", "nosniff")
                 self.end_headers()
-                self.wfile.write(response.content)
+                self.wfile.write(body)
                 return
             except (requests.RequestException, OSError):
                 continue
@@ -3505,26 +3785,51 @@ class NoryxHandler(BaseHTTPRequestHandler):
 
     def serve_remote_image(self, url):
         parsed = urlparse(url)
-        if parsed.scheme != "https" or parsed.hostname not in IMAGE_HOSTS:
-            self.send_json(403, {"error": "image_host_not_allowed"})
+        if parsed.scheme != "https":
+            self.send_json(403, {"error": "https_required"})
             return
+        hostname = (parsed.hostname or "").lower()
+        if not hostname or hostname not in IMAGE_HOSTS:
+            self.send_json(403, {"error": "image_host_not_allowed", "host": hostname})
+            return
+        try:
+            addr_info = socket.getaddrinfo(hostname, 443, proto=socket.IPPROTO_TCP)
+            for _, _, _, _, sockaddr in addr_info:
+                ip = ipaddress.ip_address(sockaddr[0])
+                if ip.is_private or ip.is_loopback or ip.is_reserved or ip.is_link_local:
+                    self.send_json(403, {"error": "private_ip_forbidden"})
+                    return
+        except Exception:
+            self.send_json(404, {"error": "host_resolution_failed"})
+            return
+
         try:
             response = requests.get(
                 url,
                 headers={"user-agent": "Noryx/1.0"},
-                timeout=8,
+                timeout=5,
+                stream=True,
             )
-            response.raise_for_status()
+            if response.status_code != 200:
+                self.send_json(404, {"error": "image_unavailable"})
+                return
             content_type = response.headers.get("content-type", "").split(";")[0]
             if not content_type.startswith("image/"):
                 self.send_json(415, {"error": "not_an_image"})
                 return
+            body = bytearray()
+            for chunk in response.iter_content(chunk_size=16384):
+                body.extend(chunk)
+                if len(body) > 5 * 1024 * 1024:
+                    self.send_json(413, {"error": "image_too_large"})
+                    return
             self.send_response(200)
             self.send_header("content-type", content_type)
-            self.send_header("cache-control", "public, max-age=3600")
-            self.send_header("content-length", str(len(response.content)))
+            self.send_header("cache-control", "public, max-age=86400")
+            self.send_header("content-length", str(len(body)))
+            self.send_header("x-content-type-options", "nosniff")
             self.end_headers()
-            self.wfile.write(response.content)
+            self.wfile.write(body)
         except (requests.RequestException, OSError):
             self.send_json(404, {"error": "image_unavailable"})
 
