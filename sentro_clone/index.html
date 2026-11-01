@@ -41,6 +41,12 @@
     color: #b6b6b6;
     font-family: var(--f-mono, monospace);
     text-align: center;
+    transition: opacity .45s ease-out, visibility .45s ease-out;
+  }
+  .boot.is-out {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
   }
   .boot__brand {
     display: grid;

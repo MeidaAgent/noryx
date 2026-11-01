@@ -86,9 +86,13 @@
   const $ = id => document.getElementById(id);
   const stage = $('stage'), fade = $('fade'), logo = $('logo'), shine = $('shine'),
         word = $('word'), ul = $('ul'), fill = $('fill'), arc1 = $('arc1'), arc2 = $('arc2');
-  const L1 = arc1.getTotalLength(), L2 = arc2.getTotalLength();
-  arc1.style.strokeDasharray = L1 + ' ' + L1;
-  arc2.style.strokeDasharray = L2 + ' ' + L2;
+  let L1 = 1558.4, L2 = 1536.9;
+  try {
+    if (arc1 && arc1.getTotalLength) L1 = arc1.getTotalLength();
+    if (arc2 && arc2.getTotalLength) L2 = arc2.getTotalLength();
+  } catch(e) {}
+  if (arc1) arc1.style.strokeDasharray = L1 + ' ' + L1;
+  if (arc2) arc2.style.strokeDasharray = L2 + ' ' + L2;
 
   function fit() {
     const s = Math.min(innerWidth / 1280, innerHeight / 720);
@@ -132,6 +136,21 @@
     fill.style.transform = `scaleX(${Math.min(Math.max(prog,0),1)})`;
   }
 
+  let postedFull = false;
+  let postedDone = false;
+  function notifyFull() {
+    if (!postedFull) {
+      postedFull = true;
+      try { window.parent.postMessage({ type: 'noryx_loader_full' }, '*'); } catch(e) {}
+    }
+  }
+  function notifyDone() {
+    if (!postedDone) {
+      postedDone = true;
+      try { window.parent.postMessage({ type: 'noryx_loader_done' }, '*'); } catch(e) {}
+    }
+  }
+
   if (FREEZE !== null) { render(FREEZE); }
   else {
     const t0 = performance.now();
@@ -140,7 +159,13 @@
       let t = (now - t0) / 1000;
       if (LOOP) t = t % DURATION; else if (t >= DURATION) { t = DURATION; done = true; }
       render(t);
-      if (!done) requestAnimationFrame(loop);
+      if (t >= 4.25) notifyFull();
+      if (!done) {
+        requestAnimationFrame(loop);
+      } else {
+        notifyFull();
+        notifyDone();
+      }
     };
     requestAnimationFrame(loop);
   }
