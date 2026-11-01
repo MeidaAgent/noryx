@@ -8,6 +8,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal, InvalidOperation
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -73,6 +74,7 @@ PONS_FACTORY = "0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e"
 PONS_LAUNCH_TOPIC = "0x8d4aad4953d0ca700d468f3753aa14432d1b35b43ec6409f051fb6aa43a89607"
 PONS_BUY_TOPIC = "0xec36bf571f136799e8dc0b0b8bea4b04d8bd3d43de838aab0d5fc21d4cbfc455"
 PONS_SELL_TOPIC = "0x8113d738abdcb6b38357e9d53a54a7157861a09031b453651f0fe7fe151f59df"
+PONS_TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 PONS_HOOK = "0xe5e702641ea86f4ae6cc3cdaed2b886f976be044"
 PONS_POOL_MANAGER = "0x8366a39cc670b4001a1121b8f6a443a643e40951"
 PONS_UNIVERSAL_ROUTER = "0x8876789976decbfcbbbe364623c63652db8c0904"
@@ -219,9 +221,14 @@ def init_database():
                 curve TEXT NOT NULL UNIQUE,
                 pair_token TEXT NOT NULL,
                 launch_block INTEGER NOT NULL,
-                launch_tx TEXT
+                launch_tx TEXT,
+                creator TEXT
             )"""
         )
+        try:
+            connection.execute("ALTER TABLE pons_launches ADD COLUMN creator TEXT")
+        except sqlite3.OperationalError:
+            pass
         connection.execute(
             """CREATE TABLE IF NOT EXISTS pons_pools (
                 pool_id TEXT PRIMARY KEY,
@@ -270,6 +277,42 @@ def init_database():
                 x_handle TEXT,
                 tg_url TEXT,
                 site TEXT,
+                updated_at INTEGER NOT NULL
+            )"""
+        )
+        connection.execute(
+            """CREATE TABLE IF NOT EXISTS token_transfers (
+                tx_hash TEXT NOT NULL,
+                log_index INTEGER NOT NULL,
+                token TEXT NOT NULL,
+                from_addr TEXT NOT NULL,
+                to_addr TEXT NOT NULL,
+                amount_raw TEXT NOT NULL,
+                block_number INTEGER NOT NULL,
+                timestamp INTEGER NOT NULL,
+                PRIMARY KEY (tx_hash, log_index)
+            )"""
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS token_transfers_token ON token_transfers(token, block_number)"
+        )
+        connection.execute(
+            """CREATE TABLE IF NOT EXISTS token_metrics (
+                token TEXT PRIMARY KEY,
+                holders INTEGER,
+                top10_pct REAL,
+                creator_pct REAL,
+                dev_holds_pct REAL,
+                buyers INTEGER,
+                snipe_pct REAL,
+                bundle_pct REAL,
+                smart INTEGER,
+                tax_bps INTEGER,
+                score INTEGER,
+                score_band TEXT,
+                score_confidence TEXT,
+                score_factors TEXT,
+                score_unmeasured TEXT,
                 updated_at INTEGER NOT NULL
             )"""
         )
@@ -535,6 +578,375 @@ def pons_token_metadata_extra(address, sync_fallback=False):
             TOKEN_META_EXECUTOR.submit(bg_task)
 
     return {}
+
+
+TOKEN_METRICS_CACHE = {}
+TOKEN_METRICS_LOCK = threading.Lock()
+TOKEN_METRICS_FETCHING = set()
+TOKEN_METRICS_EXECUTOR = ThreadPoolExecutor(max_workers=6, thread_name_prefix="noryx-metrics")
+
+
+def pons_token_holders_and_metrics(address, creator=None, sync_fallback=True):
+    address = address.lower()
+    now_ts = int(time.time())
+
+    with sqlite3.connect(DATABASE) as connection:
+        launch = connection.execute(
+            "SELECT curve, pair_token, launch_block, launch_tx, creator FROM pons_launches WHERE token = ?",
+            (address,),
+        ).fetchone()
+
+    if not launch:
+        return None, {
+            "count": 0,
+            "total_holders": 0,
+            "top10_pct": None,
+            "holders": [],
+            "partial": False,
+        }
+
+    curve, pair_token, launch_block, launch_tx, db_creator = launch
+    if not creator:
+        creator = db_creator
+
+    with sqlite3.connect(DATABASE) as connection:
+        tf_count = connection.execute(
+            "SELECT COUNT(*) FROM token_transfers WHERE token = ?",
+            (address,),
+        ).fetchone()[0]
+
+    if tf_count == 0 and sync_fallback:
+        try:
+            cur_blk = int(rpc_call("eth_blockNumber", []), 16)
+            logs = pons_index_get_logs(
+                {"address": address, "topics": [PONS_TRANSFER_TOPIC]},
+                launch_block,
+                cur_blk,
+            )
+            if logs:
+                tf_blocks = {int(log["blockNumber"], 16) for log in logs}
+                tf_timestamps = pons_block_timestamps(tf_blocks)
+                new_rows = []
+                for log in logs:
+                    topics = log.get("topics", [])
+                    data = log.get("data", "0x")
+                    if len(topics) < 3:
+                        continue
+                    src = "0x" + topics[1][-40:].lower()
+                    dst = "0x" + topics[2][-40:].lower()
+                    val_raw = str(int(data, 16)) if data != "0x" else "0"
+                    blk = int(log["blockNumber"], 16)
+                    ts = tf_timestamps.get(blk, 0)
+                    tx_h = log.get("transactionHash", "").lower()
+                    log_idx = int(log.get("logIndex", "0x0"), 16)
+                    new_rows.append((tx_h, log_idx, address, src, dst, val_raw, blk, ts))
+                with sqlite3.connect(DATABASE) as connection:
+                    connection.executemany(
+                        """INSERT OR IGNORE INTO token_transfers(
+                            tx_hash, log_index, token, from_addr, to_addr, amount_raw, block_number, timestamp
+                        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?)""",
+                        new_rows,
+                    )
+        except Exception:
+            pass
+
+    with sqlite3.connect(DATABASE) as connection:
+        rows = connection.execute(
+            "SELECT from_addr, to_addr, amount_raw, block_number FROM token_transfers WHERE token = ?",
+            (address,),
+        ).fetchall()
+        pools = connection.execute(
+            "SELECT pool_id FROM pons_pools WHERE token = ?",
+            (address,),
+        ).fetchall()
+        trade_rows = connection.execute(
+            "SELECT actor, side, token_raw, block_number FROM pons_market_trades WHERE token = ?",
+            (address,),
+        ).fetchall()
+
+    balances = defaultdict(int)
+    for from_addr, to_addr, amount_raw, blk in rows:
+        val = int(amount_raw)
+        balances[to_addr] += val
+        balances[from_addr] -= val
+
+    total_supply = sum(v for k, v in balances.items() if v > 0)
+    if total_supply <= 0:
+        total_supply = 10**9 * 10**18
+
+    system_addrs = {
+        curve.lower(): "curve",
+        PONS_POOL_MANAGER.lower(): "pool manager",
+        PONS_HOOK.lower(): "pool hook",
+        PONS_UNIVERSAL_ROUTER.lower(): "router",
+        "0x" + "0" * 40: "burned",
+        "0x" + "0" * 38 + "dead": "burned",
+    }
+    for p in pools:
+        system_addrs[p[0].lower()] = "pool"
+
+    buyers_set = set()
+    snipe_tokens = 0
+    snipe_actors = set()
+    for actor, side, tok_raw, blk in trade_rows:
+        if side == "buy" and actor:
+            actor_l = actor.lower()
+            buyers_set.add(actor_l)
+            if blk <= launch_block + 2:
+                if not creator or actor_l != creator.lower():
+                    snipe_tokens += int(tok_raw)
+                    snipe_actors.add(actor_l)
+
+    buyers = len(buyers_set)
+    snipe_pct = round(snipe_tokens / total_supply * 100.0, 2) if total_supply > 0 else 0.0
+
+    creator_lower = creator.lower() if creator else None
+    creator_balance = balances.get(creator_lower, 0) if creator_lower else 0
+    creator_pct = round(creator_balance / total_supply * 100.0, 2) if total_supply > 0 else 0.0
+
+    real_holders = []
+    all_holder_rows = []
+    sorted_holders = sorted(balances.items(), key=lambda x: x[1], reverse=True)
+
+    metadata = pons_token_metadata(address)
+    decimals = metadata.get("decimals") if isinstance(metadata.get("decimals"), int) else 18
+
+    rank = 1
+    for addr, bal in sorted_holders:
+        if bal <= 0:
+            continue
+        pct = round(bal / total_supply * 100.0, 2) if total_supply > 0 else 0.0
+        addr_l = addr.lower()
+        if addr_l in system_addrs:
+            lbl = system_addrs[addr_l]
+        elif creator_lower and addr_l == creator_lower:
+            lbl = "creator"
+        elif addr_l in snipe_actors:
+            lbl = "sniper"
+        else:
+            lbl = "wallet"
+
+        item = {
+            "address": addr,
+            "wallet": addr,
+            "balance": str(bal),
+            "amount": str(Decimal(bal) / Decimal(10**decimals)),
+            "pct": pct,
+            "label": lbl,
+            "rank": rank,
+        }
+        all_holder_rows.append(item)
+        if lbl in ("wallet", "creator", "sniper"):
+            real_holders.append(item)
+            rank += 1
+
+    holders_count = len(real_holders)
+    top10 = real_holders[:10]
+    top10_pct = round(sum(h["pct"] for h in top10), 2) if top10 else 0.0
+
+    progress = 0.0
+    try:
+        record = pons_factory_record(address)
+        if record:
+            if record["phase"] != 0:
+                progress = 100.0
+            else:
+                curve_bal = pons_eth_balance(curve)
+                threshold = pons_curve_threshold()
+                if threshold > 0:
+                    progress = min(100.0, curve_bal * 100.0 / threshold)
+    except Exception:
+        pass
+
+    if top10_pct <= 20: top10_pts = 25
+    elif top10_pct <= 35: top10_pts = 20
+    elif top10_pct <= 50: top10_pts = 15
+    elif top10_pct <= 70: top10_pts = 10
+    else: top10_pts = 5
+
+    if creator_pct <= 2: creator_pts = 20
+    elif creator_pct <= 5: creator_pts = 15
+    elif creator_pct <= 10: creator_pts = 10
+    elif creator_pct <= 20: creator_pts = 5
+    else: creator_pts = 0
+
+    if snipe_pct == 0: snipers_pts = 15
+    elif snipe_pct <= 5: snipers_pts = 12
+    elif snipe_pct <= 15: snipers_pts = 8
+    elif snipe_pct <= 30: snipers_pts = 4
+    else: snipers_pts = 0
+
+    if buyers >= 50: buyers_pts = 20
+    elif buyers >= 20: buyers_pts = 15
+    elif buyers >= 10: buyers_pts = 10
+    elif buyers >= 3: buyers_pts = 5
+    else: buyers_pts = 2
+
+    if progress >= 80: curve_pts = 20
+    elif progress >= 50: curve_pts = 15
+    elif progress >= 20: curve_pts = 10
+    else: curve_pts = 5
+
+    raw_score = top10_pts + creator_pts + snipers_pts + buyers_pts + curve_pts
+    score = max(0, min(100, raw_score))
+
+    if score >= 70: score_band = "strong"
+    elif score >= 50: score_band = "fair"
+    elif score >= 35: score_band = "weak"
+    else: score_band = "risky"
+
+    score_factors = [
+        {"id": "top10", "label": "Top 10 hold", "points": top10_pts, "max": 25, "value_text": f"{top10_pct}%", "measured": True},
+        {"id": "creator", "label": "Creator holds", "points": creator_pts, "max": 20, "value_text": f"{creator_pct}%", "measured": True},
+        {"id": "snipers", "label": "Snipers", "points": snipers_pts, "max": 15, "value_text": f"{snipe_pct}%", "measured": True},
+        {"id": "buyers", "label": "Buyers", "points": buyers_pts, "max": 20, "value_text": str(buyers), "measured": True},
+        {"id": "curve", "label": "Bonding curve", "points": curve_pts, "max": 20, "value_text": f"{round(progress)}%", "measured": True},
+    ]
+    score_unmeasured = ["bundle", "contract_audit"]
+
+    metrics_dict = {
+        "holders": holders_count,
+        "buyers": buyers,
+        "top10_pct": top10_pct,
+        "creator_pct": creator_pct,
+        "dev_holds_pct": creator_pct,
+        "snipe_pct": snipe_pct,
+        "bundle_pct": None,
+        "smart": 0,
+        "tax_bps": 0,
+        "score": score,
+        "score_band": score_band,
+        "score_confidence": "partial",
+        "score_factors": score_factors,
+        "score_unmeasured": score_unmeasured,
+        "updated_at": now_ts,
+    }
+
+    try:
+        with sqlite3.connect(DATABASE) as connection:
+            connection.execute(
+                """INSERT INTO token_metrics(
+                    token, holders, top10_pct, creator_pct, dev_holds_pct, buyers, snipe_pct,
+                    bundle_pct, smart, tax_bps, score, score_band, score_confidence,
+                    score_factors, score_unmeasured, updated_at
+                ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(token) DO UPDATE SET
+                    holders = excluded.holders,
+                    top10_pct = excluded.top10_pct,
+                    creator_pct = excluded.creator_pct,
+                    dev_holds_pct = excluded.dev_holds_pct,
+                    buyers = excluded.buyers,
+                    snipe_pct = excluded.snipe_pct,
+                    bundle_pct = excluded.bundle_pct,
+                    smart = excluded.smart,
+                    tax_bps = excluded.tax_bps,
+                    score = excluded.score,
+                    score_band = excluded.score_band,
+                    score_confidence = excluded.score_confidence,
+                    score_factors = excluded.score_factors,
+                    score_unmeasured = excluded.score_unmeasured,
+                    updated_at = excluded.updated_at""",
+                (
+                    address,
+                    holders_count,
+                    top10_pct,
+                    creator_pct,
+                    creator_pct,
+                    buyers,
+                    snipe_pct,
+                    None,
+                    0,
+                    0,
+                    score,
+                    score_band,
+                    "partial",
+                    json.dumps(score_factors),
+                    json.dumps(score_unmeasured),
+                    now_ts,
+                ),
+            )
+    except sqlite3.Error:
+        pass
+
+    with TOKEN_METRICS_LOCK:
+        TOKEN_METRICS_CACHE[address] = metrics_dict
+
+    holders_response = {
+        "count": holders_count,
+        "total_holders": holders_count,
+        "top10_pct": top10_pct,
+        "holders": all_holder_rows,
+        "partial": False,
+    }
+    return metrics_dict, holders_response
+
+
+def pons_token_metrics(address, sync_fallback=False):
+    address = address.lower()
+    now_ts = int(time.time())
+
+    with TOKEN_METRICS_LOCK:
+        cached = TOKEN_METRICS_CACHE.get(address)
+        if cached is not None and (now_ts - cached.get("updated_at", 0) < 60 or not sync_fallback):
+            return cached
+
+    try:
+        with sqlite3.connect(DATABASE) as connection:
+            row = connection.execute(
+                """SELECT holders, top10_pct, creator_pct, dev_holds_pct, buyers, snipe_pct,
+                          bundle_pct, smart, tax_bps, score, score_band, score_confidence,
+                          score_factors, score_unmeasured, updated_at
+                   FROM token_metrics WHERE token = ?""",
+                (address,),
+            ).fetchone()
+            if row is not None:
+                factors = json.loads(row[12]) if row[12] else []
+                unmeasured = json.loads(row[13]) if row[13] else []
+                metrics = {
+                    "holders": row[0],
+                    "top10_pct": row[1],
+                    "creator_pct": row[2],
+                    "dev_holds_pct": row[3],
+                    "buyers": row[4],
+                    "snipe_pct": row[5],
+                    "bundle_pct": row[6],
+                    "smart": row[7],
+                    "tax_bps": row[8],
+                    "score": row[9],
+                    "score_band": row[10],
+                    "score_confidence": row[11],
+                    "score_factors": factors,
+                    "score_unmeasured": unmeasured,
+                    "updated_at": row[14],
+                }
+                with TOKEN_METRICS_LOCK:
+                    TOKEN_METRICS_CACHE[address] = metrics
+                if now_ts - row[14] < 120 or not sync_fallback:
+                    return metrics
+    except sqlite3.Error:
+        pass
+
+    if sync_fallback:
+        metrics, _ = pons_token_holders_and_metrics(address, None, True)
+        return metrics
+
+    with TOKEN_METRICS_LOCK:
+        if address not in TOKEN_METRICS_FETCHING:
+            TOKEN_METRICS_FETCHING.add(address)
+            def bg_task():
+                try:
+                    pons_token_holders_and_metrics(address, None, True)
+                finally:
+                    with TOKEN_METRICS_LOCK:
+                        TOKEN_METRICS_FETCHING.discard(address)
+            TOKEN_METRICS_EXECUTOR.submit(bg_task)
+
+    return None
+
+
+def pons_token_holders(address, creator=None):
+    _, holders_resp = pons_token_holders_and_metrics(address, creator=creator, sync_fallback=True)
+    return holders_resp
 
 
 def pons_trend_token_info(address):
@@ -1091,6 +1503,7 @@ def pons_index_range(start_block, end_block):
                 continue
             token = "0x" + topics[1][-40:].lower()
             curve = "0x" + topics[2][-40:].lower()
+            creator = ("0x" + topics[3][-40:].lower()) if len(topics) >= 4 else None
             pair_token = "0x" + data[:64][-40:].lower()
             launch_block = int(log["blockNumber"], 16)
             existing = connection.execute(
@@ -1100,19 +1513,21 @@ def pons_index_range(start_block, end_block):
             if existing is None and pair_token == "0x" + "0" * 40:
                 new_curves[curve] = launch_block
             connection.execute(
-                """INSERT INTO pons_launches(token, curve, pair_token, launch_block, launch_tx)
-                VALUES(?, ?, ?, ?, ?)
+                """INSERT INTO pons_launches(token, curve, pair_token, launch_block, launch_tx, creator)
+                VALUES(?, ?, ?, ?, ?, ?)
                 ON CONFLICT(token) DO UPDATE SET
                     curve = excluded.curve,
                     pair_token = excluded.pair_token,
                     launch_block = excluded.launch_block,
-                    launch_tx = excluded.launch_tx""",
+                    launch_tx = excluded.launch_tx,
+                    creator = coalesce(excluded.creator, pons_launches.creator)""",
                 (
                     token,
                     curve,
                     pair_token,
                     launch_block,
                     log.get("transactionHash"),
+                    creator,
                 ),
             )
 
@@ -1344,6 +1759,53 @@ def pons_index_range(start_block, end_block):
             ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             rows,
         )
+
+    all_launched_tokens = list({pair[0] for pair in curves.values()})
+    transfer_logs = []
+    for offset in range(0, len(all_launched_tokens), 100):
+        batch = all_launched_tokens[offset : offset + 100]
+        if not batch:
+            continue
+        transfer_logs.extend(
+            pons_index_get_logs(
+                {"address": batch, "topics": [PONS_TRANSFER_TOPIC]},
+                start_block,
+                end_block,
+            )
+        )
+    if transfer_logs:
+        tf_block_numbers = {int(log["blockNumber"], 16) for log in transfer_logs}
+        tf_block_timestamps = pons_block_timestamps(tf_block_numbers)
+        transfer_rows = []
+        touched_tokens = set()
+        for log in transfer_logs:
+            topics = log.get("topics", [])
+            data = log.get("data", "0x")
+            token = log.get("address", "").lower()
+            if len(topics) < 3 or not token:
+                continue
+            src = "0x" + topics[1][-40:].lower()
+            dst = "0x" + topics[2][-40:].lower()
+            val_raw = str(int(data, 16)) if data != "0x" else "0"
+            blk = int(log["blockNumber"], 16)
+            ts = tf_block_timestamps.get(blk, 0)
+            tx_h = log.get("transactionHash", "").lower()
+            log_idx = int(log.get("logIndex", "0x0"), 16)
+            transfer_rows.append((tx_h, log_idx, token, src, dst, val_raw, blk, ts))
+            touched_tokens.add(token)
+        with sqlite3.connect(DATABASE) as connection:
+            connection.executemany(
+                """INSERT OR IGNORE INTO token_transfers(
+                    tx_hash, log_index, token, from_addr, to_addr, amount_raw, block_number, timestamp
+                ) VALUES(?, ?, ?, ?, ?, ?, ?, ?)""",
+                transfer_rows,
+            )
+        for tk in touched_tokens:
+            try:
+                TOKEN_METRICS_EXECUTOR.submit(pons_token_holders_and_metrics, tk, None, False)
+            except Exception:
+                pass
+
     return len(rows)
 
 
@@ -2895,6 +3357,26 @@ def enrich_pons_row(row):
     for k in ("image", "x_url", "x_handle", "tg_url", "site", "description"):
         if meta_extra.get(k) and not row.get(k):
             row[k] = meta_extra[k]
+    t_metrics = pons_token_metrics(row["token"], sync_fallback=False)
+    if t_metrics:
+        for k, v in t_metrics.items():
+            if k != "updated_at":
+                row[k] = v
+    else:
+        row.setdefault("holders", None)
+        row.setdefault("buyers", None)
+        row.setdefault("top10_pct", None)
+        row.setdefault("creator_pct", None)
+        row.setdefault("dev_holds_pct", None)
+        row.setdefault("snipe_pct", None)
+        row.setdefault("bundle_pct", None)
+        row.setdefault("smart", 0)
+        row.setdefault("tax_bps", 0)
+        row.setdefault("score", None)
+        row.setdefault("score_band", None)
+        row.setdefault("score_confidence", "partial")
+        row.setdefault("score_factors", [])
+        row.setdefault("score_unmeasured", [])
     metadata = pons_token_metadata(row["token"])
     market = pons_market_data(row["token"], record, metadata)
     trade_metrics = {}
@@ -3012,11 +3494,43 @@ def pons_token_snapshot(address):
         "stage": "launched" if phase == 0 else "migrated",
         **market,
         "trades": [],
-        "holders": [],
         "flow": [],
         "source": "pons_chain_rpc",
         "read_only": True,
     }
+    t_metrics = pons_token_metrics(address, sync_fallback=True)
+    if t_metrics:
+        token["holders"] = t_metrics["holders"]
+        token["holders_count"] = t_metrics["holders"]
+        token["buyers"] = t_metrics["buyers"]
+        token["top10_pct"] = t_metrics["top10_pct"]
+        token["creator_pct"] = t_metrics["creator_pct"]
+        token["dev_holds_pct"] = t_metrics["dev_holds_pct"]
+        token["snipe_pct"] = t_metrics["snipe_pct"]
+        token["bundle_pct"] = t_metrics["bundle_pct"]
+        token["smart"] = t_metrics["smart"]
+        token["tax_bps"] = t_metrics["tax_bps"]
+        token["score"] = t_metrics["score"]
+        token["score_band"] = t_metrics["score_band"]
+        token["score_confidence"] = t_metrics["score_confidence"]
+        token["score_factors"] = t_metrics["score_factors"]
+        token["score_unmeasured"] = t_metrics["score_unmeasured"]
+    else:
+        token["holders"] = None
+        token["holders_count"] = None
+        token["buyers"] = None
+        token["top10_pct"] = None
+        token["creator_pct"] = None
+        token["dev_holds_pct"] = None
+        token["snipe_pct"] = None
+        token["bundle_pct"] = None
+        token["smart"] = 0
+        token["tax_bps"] = 0
+        token["score"] = None
+        token["score_band"] = None
+        token["score_confidence"] = "partial"
+        token["score_factors"] = []
+        token["score_unmeasured"] = []
     if metadata.get("metadata_error"):
         token["metadata_error"] = metadata["metadata_error"]
     if market.get("market_error"):
@@ -3439,10 +3953,22 @@ class NoryxHandler(BaseHTTPRequestHandler):
             except (RuntimeError, TypeError, requests.RequestException) as exc:
                 self.send_json(503, {"error": "pons_rpc_unavailable", "detail": str(exc), "items": []})
             return
+        if path.startswith("/api/token/") and path.endswith("/holders"):
+            address = path.split("/")[3]
+            if not re.fullmatch(r"0x[0-9a-fA-F]{40}", address):
+                self.send_json(400, {"error": "invalid_address", "address": address})
+                return
+            creator_param = query.get("creator", [None])[0]
+            try:
+                payload = pons_token_holders(address.lower(), creator=creator_param)
+                self.send_json(200, payload)
+            except Exception as exc:
+                self.send_json(503, {"error": "holders_unavailable", "detail": str(exc), "holders": [], "count": 0})
+            return
         if path.startswith("/api/token/") or path.startswith("/api/check/"):
             parts = path.split("/")
             address = parts[3] if len(parts) > 3 else ""
-            if path.startswith("/api/token/") and len(parts) > 4 and parts[4] not in {"market", "preview", "boot"}:
+            if path.startswith("/api/token/") and len(parts) > 4 and parts[4] not in {"market", "preview", "boot", "holders"}:
                 self.send_json(
                     501,
                     {
