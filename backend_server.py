@@ -89,7 +89,7 @@ PONS_V3_FACTORY = "0x1f7d7550b1b028f7571e69a784071f0205fd2efa"
 PONS_WETH = "0x0bd7d308f8e1639fab988df18a8011f41eacad73"
 PONS_USDG = "0x5fc5360d0400a0fd4f2af552add042d716f1d168"
 PONS_V3_FEES = (100, 500, 3000, 10000)
-PONS_FEED_WINDOW_BLOCKS = int(os.getenv("NORYX_PONS_FEED_WINDOW_BLOCKS", "10000"))
+PONS_FEED_WINDOW_BLOCKS = int(os.getenv("NORYX_PONS_FEED_WINDOW_BLOCKS", "100000"))
 PONS_HISTORY_MAX_BLOCKS = int(os.getenv("NORYX_PONS_HISTORY_MAX_BLOCKS", "1500000"))
 PONS_INDEXER_CHUNK_BLOCKS = int(os.getenv("NORYX_PONS_INDEXER_CHUNK_BLOCKS", "20000"))
 PONS_INDEXER_POLL_SECONDS = float(os.getenv("NORYX_PONS_INDEXER_POLL_SECONDS", "2"))
@@ -103,6 +103,7 @@ PONS_MARKET_CACHE = {}
 PONS_LAUNCH_CACHE = {"updated_at": 0, "head": 0, "window_start": 0, "rows": [], "scan_truncated": False}
 PONS_LAUNCH_CACHE_LOCK = threading.Lock()
 PONS_BONDING_CACHE = {"updated_at": 0, "rows": []}
+PONS_MIGRATED_CACHE = {"updated_at": 0, "rows": []}
 PONS_LAUNCH_BLOCK_CACHE = {}
 PONS_TRADE_LOG_CACHE = {}
 PONS_TRADE_LOG_CACHE_LOCK = threading.Lock()
@@ -1117,19 +1118,24 @@ def pons_factory_record(address):
 
 
 def pons_launch_logs(start_block, end_block):
-    logs = rpc_call(
-        "eth_getLogs",
-        [
-            {
-                "address": PONS_FACTORY,
-                "fromBlock": hex(start_block),
-                "toBlock": hex(end_block),
-                "topics": [PONS_LAUNCH_TOPIC],
-            }
-        ],
-    )
-    if not isinstance(logs, list):
-        raise ValueError("Pons RPC returned an invalid log list")
+    logs = []
+    chunk_size = 20_000
+    for chunk_start in range(start_block, end_block + 1, chunk_size):
+        chunk_end = min(end_block, chunk_start + chunk_size - 1)
+        chunk = rpc_call(
+            "eth_getLogs",
+            [
+                {
+                    "address": PONS_FACTORY,
+                    "fromBlock": hex(chunk_start),
+                    "toBlock": hex(chunk_end),
+                    "topics": [PONS_LAUNCH_TOPIC],
+                }
+            ],
+        )
+        if not isinstance(chunk, list):
+            raise ValueError("Pons RPC returned an invalid log list")
+        logs.extend(chunk)
     return logs
 
 
@@ -1203,7 +1209,7 @@ def pons_feed(query, search_term=""):
     if column not in {"new", "bonding", "migrated"}:
         raise ValueError("unsupported Pons feed column")
     with PONS_LAUNCH_CACHE_LOCK:
-        if time.time() - PONS_LAUNCH_CACHE["updated_at"] >= 3:
+        if time.time() - PONS_LAUNCH_CACHE["updated_at"] >= 15:
             head = int(rpc_call("eth_blockNumber", []), 16)
             start = max(0, head - max(1, PONS_FEED_WINDOW_BLOCKS))
             logs = pons_launch_logs(start, head)
@@ -1252,6 +1258,11 @@ def pons_feed(query, search_term=""):
             candidates = PONS_BONDING_CACHE["rows"]
     else:
         candidates = [row for row in chain_rows if row["phase"] != 0]
+        if candidates:
+            PONS_MIGRATED_CACHE["updated_at"] = time.time()
+            PONS_MIGRATED_CACHE["rows"] = candidates
+        elif PONS_MIGRATED_CACHE["rows"] and time.time() - PONS_MIGRATED_CACHE["updated_at"] < 300:
+            candidates = PONS_MIGRATED_CACHE["rows"]
 
     page_rows = candidates[offset : offset + limit]
     with ThreadPoolExecutor(max_workers=12) as executor:
